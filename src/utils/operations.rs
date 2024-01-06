@@ -1,0 +1,66 @@
+pub enum Operation {
+    NbAdd,
+    NbAnd,
+    NbFloorDivide,
+    NbLshift,
+    NbMatrixMultiply,
+    NbMultiply,
+    NbRemainder,
+    NbOr,
+    NbPower,
+    NbRshift,
+    NbSubtract,
+    NbTrueDivide,
+    NbXor,
+    NbInplaceAdd,
+    NbInplaceAnd,
+    NbInplaceFloorDivide,
+    NbInplaceLshift,
+    NbInplaceMatrixMultiply,
+    NbInplaceMultiply,
+    NbInplaceRemainder,
+    NbInplaceOr,
+    NbInplacePower,
+    NbInplaceRshift,
+    NbInplaceSubtract,
+    NbInplaceTrueDivide,
+    NbInplaceXor,
+    NbOpargLast,
+}
+
+impl Operation {
+    pub fn from_byte(byte: &u8) -> Option<Self> {
+        match byte {
+            0 => Some(Operation::NbAdd),
+            1 => Some(Operation::NbAnd),
+            2 => Some(Operation::NbFloorDivide),
+            3 => Some(Operation::NbLshift),
+            4 => Some(Operation::NbMatrixMultiply),
+            5 => Some(Operation::NbMultiply),
+            6 => Some(Operation::NbRemainder),
+            7 => Some(Operation::NbOr),
+            8 => Some(Operation::NbPower),
+            9 => Some(Operation::NbRshift),
+            10 => Some(Operation::NbSubtract),
+            11 => Some(Operation::NbTrueDivide),
+            12 => Some(Operation::NbXor),
+            13 => Some(Operation::NbInplaceAdd),
+            14 => Some(Operation::NbInplaceAnd),
+            15 => Some(Operation::NbInplaceFloorDivide),
+            16 => Some(Operation::NbInplaceLshift),
+            17 => Some(Operation::NbInplaceMatrixMultiply),
+            18 => Some(Operation::NbInplaceMultiply),
+            19 => Some(Operation::NbInplaceRemainder),
+            20 => Some(Operation::NbInplaceOr),
+            21 => Some(Operation::NbInplacePower),
+            22 => Some(Operation::NbInplaceRshift),
+            23 => Some(Operation::NbInplaceSubtract),
+            24 => Some(Operation::NbInplaceTrueDivide),
+            25 => Some(Operation::NbInplaceXor),
+
+            // 25 => Some(Operation::NbOpargLast),
+            
+            _ => None
+        }
+    }
+}
