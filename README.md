@@ -13,6 +13,8 @@ It uses generated Python bytecode (.pyc files) to transpile the instructions to 
 - https://github.com/python/cpython/blob/main/Python/marshal.c
 - https://github.com/python/cpython/blob/main/Include/cpython/code.h
 - https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python/16123158#16123158
+- [Opcodes](https://github.com/python/cpython/blob/main/Include/opcode.h)
+- [Opcode Ids](https://github.com/python/cpython/blob/main/Include/opcode_ids.h)
 
 ## Todo:
 - [x] Create a Python script to generate the .pyc file
