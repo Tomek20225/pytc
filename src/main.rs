@@ -84,16 +84,6 @@ impl TypeIdentifier {
     }
 }
 
-fn read_long(binary: &Vec<u8>, start_idx: usize) -> i32 {
-    let long_int = i32::from_le_bytes([
-        binary[start_idx],
-        binary[start_idx + 1],
-        binary[start_idx + 2],
-        binary[start_idx + 3],
-    ]);
-    return long_int;
-}
-
 fn read_type(byte: &u8) -> Option<TypeIdentifier> {
     TypeIdentifier::from_byte(byte)
 }
@@ -120,39 +110,79 @@ struct CodeBlock {
     co_lnotab: Vec<u8>, // tbd
 }
 
-fn process_code_block(binary: &Vec<u8>) -> CodeBlock {
+fn process_code_block(reader: &mut Reader) -> CodeBlock {
     let mut code = CodeBlock{ ..Default::default() };
-    let mut i = 0;
 
     // First byte
-    let chunk_type = TypeIdentifier::from_byte(&binary[i]).unwrap();
+    let chunk_type = TypeIdentifier::from_byte(reader.get().unwrap()).unwrap();
+    reader.next();
     // println!("type: {:?}", chunk_type);
-    i += 1;
 
     // Static params
-    code.co_argcount = read_long(&binary, i);
-    i += 4;
-    code.co_kwonlyargcount = read_long(&binary, i);
-    i += 4;
-    code.co_nlocals = read_long(&binary, i);
-    i += 4;
-    code.co_posonlyargcount = read_long(&binary, i);
-    i += 4;
-    code.co_stacksize = read_long(&binary, i);
-    i += 4;
-    code.co_flags = binary[i];
-    i += 4;
-    i += 1;
-    code.co_code_size = binary[i];
-    i += 4;
+    code.co_argcount = reader.read_long();
+    code.co_kwonlyargcount = reader.read_long();
+    code.co_nlocals = reader.read_long();
+    code.co_posonlyargcount = reader.read_long();
+    code.co_stacksize = reader.read_long();
+    code.co_flags = *reader.get().unwrap();
+    reader.jump(4);
+    reader.next();
+    code.co_code_size = *reader.get().unwrap();
+    reader.jump(4);
 
     return code;
+}
+
+#[derive(Default)]
+#[derive(Debug)]
+struct Reader {
+    current_idx: usize,
+    contents: Vec<u8> 
+}
+
+impl Reader {
+    fn get(&self) -> Option<&u8> {
+        self.contents.get(self.current_idx)
+    }
+
+    fn get_by_idx(&self, idx: usize) -> Option<&u8> {
+        self.contents.get(idx)
+    }
+
+    fn next(&mut self) {
+        // TODO: EOF case
+        self.current_idx += 1
+    }
+
+    fn jump(&mut self, jump: usize) {
+        // TODO: EOF case
+        self.current_idx += jump
+    }
+
+    fn is_eof(&self) -> bool {
+        self.current_idx >= self.contents.len()
+    }
+
+    fn read_long(&mut self) -> i32 {
+        let long = i32::from_le_bytes([
+            self.contents[self.current_idx],
+            self.contents[self.current_idx + 1],
+            self.contents[self.current_idx + 2],
+            self.contents[self.current_idx + 3],
+        ]);
+        self.jump(4);
+        return long;
+    }
 }
 
 fn main() {
     let filename = "./src/python/foo.pyc";
     let contents = fs::read(filename).expect("reading pyc file");
-    let code = process_code_block(&contents);
+    let mut reader = Reader{
+        current_idx: 0,
+        contents: contents
+    };
+    let code = process_code_block(&mut reader);
     println!("{:?}", code);
 
     // for byte in contents.iter() {
