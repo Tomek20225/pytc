@@ -7,4 +7,3 @@ def baz(x,y):
 
 multiplication = baz(a,b)
 square = multiplication ** 2
-print(square)
