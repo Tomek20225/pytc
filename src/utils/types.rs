@@ -1,5 +1,7 @@
 const FLAG_REF: u8 = 0x80; // with a type, add obj to index
 
+// TODO: Finish translating types into an enum
+
 #[derive(Debug)]
 pub enum TypeIdentifier {
     // Single Type

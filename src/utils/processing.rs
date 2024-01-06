@@ -11,7 +11,7 @@ pub struct CodeBlock {
     pub co_stacksize: i32,
     pub co_flags: i32,
     pub co_code_size: i32,
-    pub co_code: Vec<TypeIdentifier>,
+    pub co_code: Vec<u8>, // tbd
     pub co_const: Vec<u8>, // tbd
     pub co_names: Vec<String>, // tbd,
     pub co_varnames: Vec<u8>, // tbd
@@ -41,9 +41,22 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     code.co_code_size = reader.read_long();
 
     // Instructions (next co_code_size bytes)
-    // for i in 0..46 {
-    //     println!("{i}");
+    // TODO: Parse instructions
+    code.co_code = reader.read(code.co_code_size).to_vec();
+    // for byte in co_code.iter() {
+    //     let ch = *byte as char;
+    //     println!("{byte} {ch}");
     // }
+
+    // TODO: co_consts - each const can be a CodeBlock
+    // TODO: co_names
+    // TODO: co_varnames
+    // TODO: co_freevars
+    // TODO: co_cellvars
+    // TODO: co_filename
+    // TODO: co_name
+    // TODO: co_firstlineno
+    // TODO: co_lnotab
 
     return code;
 }

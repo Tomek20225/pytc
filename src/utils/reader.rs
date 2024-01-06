@@ -28,6 +28,11 @@ impl Reader {
         self.current_idx >= self.contents.len()
     }
 
+    pub fn read(&mut self, bytes_amnt: i32) -> &[u8] {
+        // TODO: EOF case
+        &self.contents[self.current_idx..self.current_idx + bytes_amnt as usize]
+    }
+
     pub fn read_long(&mut self) -> i32 {
         // TODO: EOF case
         let long = i32::from_le_bytes([
