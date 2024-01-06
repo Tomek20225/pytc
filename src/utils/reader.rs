@@ -1,3 +1,5 @@
+use super::operations::Operation;
+
 #[derive(Default)]
 #[derive(Debug)]
 pub struct Reader {
@@ -6,6 +8,10 @@ pub struct Reader {
 }
 
 impl Reader {
+    pub fn get_current_idx(&self) -> usize {
+        self.current_idx
+    }
+    
     pub fn get(&self) -> Option<&u8> {
         self.contents.get(self.current_idx)
     }
@@ -33,6 +39,13 @@ impl Reader {
         &self.contents[self.current_idx..self.current_idx + bytes_amnt as usize]
     }
 
+    pub fn read_byte(&mut self) -> u8 {
+        // TODO: EOF case
+        let byte = self.contents[self.current_idx];
+        self.next();
+        return byte;
+    }
+
     pub fn read_long(&mut self) -> i32 {
         // TODO: EOF case
         let long = i32::from_le_bytes([
@@ -43,5 +56,11 @@ impl Reader {
         ]);
         self.jump(4);
         return long;
+    }
+
+    pub fn read_instruction(&mut self) -> Option<Operation> {
+        let byte = *self.get().expect(&format!("reading byte on idx {}", self.current_idx));
+        self.next();
+        Operation::from_byte(&byte, self)
     }
 }

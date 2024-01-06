@@ -1,0 +1,66 @@
+pub enum PrecompiledOperation {
+    NbAdd,
+    NbAnd,
+    NbFloorDivide,
+    NbLshift,
+    NbMatrixMultiply,
+    NbMultiply,
+    NbRemainder,
+    NbOr,
+    NbPower,
+    NbRshift,
+    NbSubtract,
+    NbTrueDivide,
+    NbXor,
+    NbInplaceAdd,
+    NbInplaceAnd,
+    NbInplaceFloorDivide,
+    NbInplaceLshift,
+    NbInplaceMatrixMultiply,
+    NbInplaceMultiply,
+    NbInplaceRemainder,
+    NbInplaceOr,
+    NbInplacePower,
+    NbInplaceRshift,
+    NbInplaceSubtract,
+    NbInplaceTrueDivide,
+    NbInplaceXor,
+    NbOpargLast,
+}
+
+impl PrecompiledOperation {
+    pub fn from_byte(byte: &u8) -> Option<Self> {
+        match byte {
+            0 => Some(PrecompiledOperation::NbAdd),
+            1 => Some(PrecompiledOperation::NbAnd),
+            2 => Some(PrecompiledOperation::NbFloorDivide),
+            3 => Some(PrecompiledOperation::NbLshift),
+            4 => Some(PrecompiledOperation::NbMatrixMultiply),
+            5 => Some(PrecompiledOperation::NbMultiply),
+            6 => Some(PrecompiledOperation::NbRemainder),
+            7 => Some(PrecompiledOperation::NbOr),
+            8 => Some(PrecompiledOperation::NbPower),
+            9 => Some(PrecompiledOperation::NbRshift),
+            10 => Some(PrecompiledOperation::NbSubtract),
+            11 => Some(PrecompiledOperation::NbTrueDivide),
+            12 => Some(PrecompiledOperation::NbXor),
+            13 => Some(PrecompiledOperation::NbInplaceAdd),
+            14 => Some(PrecompiledOperation::NbInplaceAnd),
+            15 => Some(PrecompiledOperation::NbInplaceFloorDivide),
+            16 => Some(PrecompiledOperation::NbInplaceLshift),
+            17 => Some(PrecompiledOperation::NbInplaceMatrixMultiply),
+            18 => Some(PrecompiledOperation::NbInplaceMultiply),
+            19 => Some(PrecompiledOperation::NbInplaceRemainder),
+            20 => Some(PrecompiledOperation::NbInplaceOr),
+            21 => Some(PrecompiledOperation::NbInplacePower),
+            22 => Some(PrecompiledOperation::NbInplaceRshift),
+            23 => Some(PrecompiledOperation::NbInplaceSubtract),
+            24 => Some(PrecompiledOperation::NbInplaceTrueDivide),
+            25 => Some(PrecompiledOperation::NbInplaceXor),
+
+            // 25 => Some(Operation::NbOpargLast),
+            
+            _ => None
+        }
+    }
+}

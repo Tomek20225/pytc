@@ -1,3 +1,4 @@
+use super::operations::Operation;
 use super::types::TypeIdentifier;
 use super::reader::Reader;
 
@@ -11,7 +12,7 @@ pub struct CodeBlock {
     pub co_stacksize: i32,
     pub co_flags: i32,
     pub co_code_size: i32,
-    pub co_code: Vec<u8>, // tbd
+    pub co_code: Vec<Operation>, // tbd
     pub co_const: Vec<u8>, // tbd
     pub co_names: Vec<String>, // tbd,
     pub co_varnames: Vec<u8>, // tbd
@@ -37,16 +38,17 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     code.co_posonlyargcount = reader.read_long();
     code.co_stacksize = reader.read_long();
     code.co_flags = reader.read_long();
-    reader.next(); // skip 1 byte flag representing the co_code_size
+    reader.next(); // skip 1 byte flag representing the co_code_size, 's'
     code.co_code_size = reader.read_long();
 
     // Instructions (next co_code_size bytes)
-    // TODO: Parse instructions
-    code.co_code = reader.read(code.co_code_size).to_vec();
-    // for byte in co_code.iter() {
-    //     let ch = *byte as char;
-    //     println!("{byte} {ch}");
-    // }
+    let mut co_code: Vec<Operation> = Vec::new();
+    let limit = reader.get_current_idx() + code.co_code_size as usize;
+    while reader.get_current_idx() < limit {
+        let instruction = reader.read_instruction().expect(&format!("reading instruction from byte {}", reader.get_current_idx()));
+        co_code.push(instruction);
+    }
+    code.co_code = co_code;
 
     // TODO: co_consts - each const can be a CodeBlock
     // TODO: co_names
