@@ -1,10 +1,30 @@
 use super::{operations::Operation, var::Var};
 
 #[derive(Default, Debug)]
+pub struct CodeBlock {
+    pub co_argcount: i32,       // Number of positional arguments
+    pub co_kwonlyargcount: i32, // Number of keyworded arguments
+    pub co_nlocals: i32,        // Number of local variables, including args and kwargs
+    pub co_posonlyargcount: i32,
+    pub co_stacksize: i32,
+    pub co_flags: i32,
+    pub co_code: Vec<Operation>,
+    pub co_const: Box<Var>,
+    pub co_names: Box<Var>,
+    pub co_varnames: Box<Var>,
+    pub co_freevars: Box<Var>,
+    pub co_cellvars: Box<Var>,
+    pub co_filename: Box<Var>,
+    pub co_name: Box<Var>,
+    pub co_firstlineno: i32,
+    pub co_lnotab: Box<Var>,
+}
+
+#[derive(Debug)]
 pub struct Reader {
     pub current_idx: usize,
     pub contents: Vec<u8>,
-    pub last_operation: String // TODO: Make this private
+    pub last_operation: String, // TODO: Make this private
 }
 
 impl Reader {
@@ -38,7 +58,7 @@ impl Reader {
 
     pub fn get_error_msg(&self) -> String {
         format!(
-            "Attempting to {} {} on idx {}",
+            "Attempting to {} b'{}' on idx {}",
             self.last_operation, self.contents[self.current_idx], self.current_idx
         )
     }
@@ -146,5 +166,113 @@ impl Reader {
             tuple.push(var);
         }
         tuple
+    }
+
+    pub fn read_code(&mut self) -> CodeBlock {
+        let mut code = CodeBlock {
+            ..Default::default()
+        };
+
+        // Static params
+        code.co_argcount = self.read_long();
+        code.co_kwonlyargcount = self.read_long();
+        code.co_nlocals = self.read_long();
+        code.co_posonlyargcount = self.read_long();
+        code.co_stacksize = self.read_long();
+        code.co_flags = self.read_long();
+        self.next(); // skip 1 byte flag representing the co_code_size, i.e. 's' (string)
+        let co_code_size = self.read_long();
+
+        // Operations (next co_code_size bytes)
+        let mut co_code: Vec<Operation> = Vec::new();
+        let limit = self.current_idx + co_code_size as usize;
+        while self.current_idx < limit {
+            let operation = self
+                .read_operation()
+                .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+            co_code.push(operation);
+        }
+        code.co_code = co_code;
+
+        // co_const - tuple of typed variables, including CodeBlocks
+        let co_const = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_const = Box::new(co_const);
+
+        // co_names - tuple of strings
+        let co_names = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_names = Box::new(co_names);
+
+        // co_varnames
+        let co_varnames = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_varnames = Box::new(co_varnames);
+
+        // co_freevars
+        let co_freevars = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_freevars = Box::new(co_freevars);
+
+        // co_cellvars
+        let co_cellvars = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_cellvars = Box::new(co_cellvars);
+
+        // co_filename
+        let co_filename = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_filename = Box::new(co_filename);
+
+        // co_name
+        let co_name = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_name = Box::new(co_name);
+
+        // co_firstlineno
+        let co_firstlineno = self.read_long();
+        code.co_firstlineno = co_firstlineno;
+
+        // co_lnotab
+        // Probably something wrong got read here, but this doesn't matter - it's unused
+        // This should be a mapping of bytecode offset to line locations in Python file
+        let co_lnotab = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+        code.co_lnotab = Box::new(co_lnotab);
+
+        code
+    }
+
+    pub fn read_file(&mut self) -> Option<CodeBlock> {
+        let code = self
+            .read_var()
+            .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+
+        match code {
+            Var::Code(code_block) => Some(code_block),
+            Var::FlagRef(boxed_var) => match *boxed_var {
+                Var::Code(code_block) => Some(code_block),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
+
+impl Default for Reader {
+    fn default() -> Self {
+        Reader {
+            current_idx: 0,
+            contents: Vec::new(),
+            last_operation: "init".to_string()
+        }
     }
 }

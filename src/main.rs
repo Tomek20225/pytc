@@ -1,19 +1,16 @@
 use std::fs;
 mod utils;
-use utils::processing::*;
 use utils::reader::Reader;
-use utils::var::Var;
 
 fn main() {
     let filename = "./src/python/foo.pyc";
-    let contents = fs::read(filename).expect("reading pyc file");
+    let contents = fs::read(filename).expect("Couldn't read the given file");
 
-    // TODO: Start processing only if FlagRef('c') or 'c' types are found
     let mut reader = Reader {
-        current_idx: 0,
         contents,
-        last_operation: "init".to_string()
+        ..Default::default()
     };
-    let code = process_code_block(&mut reader);
+    let code = reader.read_file().expect("Couldn't parse the given file");
+    
     println!("{:?}", code);
 }
