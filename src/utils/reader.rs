@@ -33,6 +33,7 @@ impl Reader {
     }
 
     pub fn get(&self) -> Option<&u8> {
+        // TODO: EOF Case
         self.contents.get(self.current_idx)
     }
 
@@ -42,7 +43,7 @@ impl Reader {
 
     pub fn jump(&mut self, jump: usize) {
         // > instead of >= to be able to read the last byte from file
-        if self.current_idx + jump > self.contents.len() {
+        if self.is_eof() || self.current_idx + jump > self.contents.len() {
             panic!("Attempting to move the cursor beyond the file")
         }
         self.current_idx += jump
@@ -253,9 +254,13 @@ impl Reader {
     }
 
     pub fn read_file(&mut self) -> Option<CodeBlock> {
+        // Read the main block of code in the .pyc file
         let code = self
             .read_var()
             .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
+
+        // Go back to the beginning of the file
+        self.current_idx = 0;
 
         // Proper .pyc file has to start with either a code block or a reference to it
         match code {

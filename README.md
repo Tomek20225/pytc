@@ -15,6 +15,7 @@ It uses generated Python bytecode (.pyc files) to transpile the instructions to 
 - https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python/16123158#16123158
 - [Opcodes](https://github.com/python/cpython/blob/main/Include/opcode.h)
 - [Opcode Ids](https://github.com/python/cpython/blob/main/Include/opcode_ids.h)
+- [Unicode character values lookup](https://unicodelookup.com/#c/2)
 
 ## Todo:
 - [x] Create a Python script to generate the .pyc file
