@@ -59,8 +59,7 @@ impl PrecompiledOperation {
             25 => Some(PrecompiledOperation::NbInplaceXor),
 
             // 25 => Some(Operation::NbOpargLast),
-            
-            _ => None
+            _ => None,
         }
     }
 }

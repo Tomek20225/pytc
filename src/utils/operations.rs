@@ -248,7 +248,7 @@ impl Operation {
             143 => Some(Operation::SetupWith(next_byte)),
             144 => Some(Operation::ExtendedArg(u16::from_le_bytes([
                 next_byte,
-                reader.read_byte()
+                reader.read_byte(),
             ]))), // TODO: Change to comply with Include/cpython/code.h:27
             145 => Some(Operation::ListAppend(next_byte)),
             146 => Some(Operation::SetAdd(next_byte)),
@@ -265,7 +265,7 @@ impl Operation {
             163 => Some(Operation::SetUpdate(next_byte)),
             164 => Some(Operation::DictMerge(next_byte)),
             165 => Some(Operation::DictUpdate(next_byte)),
-            _ => None
+            _ => None,
         }
     }
 }

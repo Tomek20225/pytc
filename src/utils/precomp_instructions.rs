@@ -220,7 +220,7 @@ pub enum PrecompiledInstruction {
     SetupWith,
     StoreFastMaybeNull,
     //
-    HaveArgument, // 44
+    HaveArgument,          // 44
     MinInstrumentedOpcode, // 236
 }
 
@@ -450,8 +450,7 @@ impl PrecompiledInstruction {
 
             // 44 => Some(Instruction::HaveArgument),
             // 236 => Some(Instruction::MinInstrumentedOpcode),
-
-            _ => None
+            _ => None,
         }
     }
 }
