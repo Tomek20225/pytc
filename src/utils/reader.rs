@@ -1,4 +1,4 @@
-use super::{operations::Operation, types::TypeIdentifier};
+use super::{operations::Operation, var::Var};
 
 #[derive(Default, Debug)]
 pub struct Reader {
@@ -77,10 +77,7 @@ impl Reader {
     }
 
     pub fn read_string(&mut self) -> String {
-        let len = *self
-            .get()
-            .unwrap_or_else(|| panic!("reading byte on idx {}", self.current_idx));
-        self.next();
+        let len = self.read_byte();
         let mut str_res: String = String::from("");
         for _ in 0..len {
             let byte = *self
@@ -95,18 +92,23 @@ impl Reader {
 
     pub fn read_operation(&mut self) -> Option<Operation> {
         // TODO: EOF case
-        let byte = *self
-            .get()
-            .unwrap_or_else(|| panic!("reading byte on idx {}", self.current_idx));
-        self.next();
+        let byte = self.read_byte();
         Operation::from_byte(&byte, self)
     }
 
-    pub fn read_var(&mut self) -> Option<TypeIdentifier> {
-        let byte = *self
-            .get()
-            .unwrap_or_else(|| panic!("reading byte on idx {}", self.current_idx));
-        self.next();
-        TypeIdentifier::from_byte(&byte, self)
+    pub fn read_var(&mut self) -> Option<Var> {
+        let byte = self.read_byte();
+        Var::from_byte(&byte, self)
+    }
+
+    pub fn read_tuple(&mut self) -> Vec<Var> {
+        let len = self.read_byte();
+        let mut tuple: Vec<Var> = Vec::new();
+        for _ in 0..len {
+            let byte = self.read_byte();
+            let var = Var::from_byte(&byte, self).expect("reading var");
+            tuple.push(var);
+        }
+        tuple
     }
 }

@@ -1,6 +1,6 @@
 use super::operations::Operation;
 use super::reader::Reader;
-use super::types::TypeIdentifier;
+use super::var::Var;
 
 #[derive(Default, Debug)]
 pub struct CodeBlock {
@@ -12,11 +12,11 @@ pub struct CodeBlock {
     pub co_flags: i32,
     pub co_code_size: i32,
     pub co_code: Vec<Operation>,
-    pub co_const: Vec<TypeIdentifier>,
-    pub co_names: Vec<TypeIdentifier>,
-    pub co_varnames: Vec<TypeIdentifier>,
-    pub co_freevars: Vec<TypeIdentifier>,
-    pub co_cellvars: Vec<TypeIdentifier>,
+    pub co_const: Vec<Var>,
+    pub co_names: Box<Var>,
+    pub co_varnames: Box<Var>,
+    pub co_freevars: Box<Var>,
+    pub co_cellvars: Box<Var>,
     pub co_filename: Vec<u8>, // tbd
     pub co_name: String,      // tbd
     pub co_firstlineno: i32,
@@ -43,13 +43,13 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     reader.next(); // skip 1 byte flag representing the co_code_size, i.e. 's'
     code.co_code_size = reader.read_long();
 
-    // Instructions (next co_code_size bytes)
+    // Operations (next co_code_size bytes)
     let mut co_code: Vec<Operation> = Vec::new();
     let limit = reader.get_current_idx() + code.co_code_size as usize;
     while reader.get_current_idx() < limit {
-        let operation = reader.read_operation().unwrap_or_else(|| {
-            panic!("reading operation from byte {}", reader.get_current_idx())
-        });
+        let operation = reader
+            .read_operation()
+            .unwrap_or_else(|| panic!("reading operation from byte {}", reader.get_current_idx()));
         co_code.push(operation);
     }
     code.co_code = co_code;
@@ -60,7 +60,7 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     // TypeIdentifier::from_byte(&reader.read_byte()).expect("reading co_const size");
     reader.next();
     let co_const_size = reader.read_byte();
-    let mut co_const: Vec<TypeIdentifier> = Vec::new();
+    let mut co_const: Vec<Var> = Vec::new();
     // TODO: Process vars in a dynamic loop (5 consts are in the example foo.py file)
     // TODO: Process code consts properly (can be done after finishing of this function)
     co_const.push(reader.read_var().expect("reading first const"));
@@ -72,44 +72,30 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     code.co_const = co_const;
 
     // co_names - tuple of strings
-    // TODO: This will either be reference to empty tuple r\x03\x00\x00\x00 or a tuple start ')' with its length
-    // Skip 1 byte representing start of a co_names tuple, i.e. ')'
-    reader.next();
-    let co_names_size = reader.read_byte();
-    let mut co_names: Vec<TypeIdentifier> = Vec::new();
-    for _ in 0..co_names_size {
-        co_names.push(reader.read_var().unwrap_or_else(|| {
-            panic!("reading instruction from byte {}", reader.get_current_idx())
-        }));
-    }
-    code.co_names = co_names;
+    let co_names = reader
+        .read_var()
+        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+    code.co_names = Box::new(co_names);
 
     // co_varnames
-    // TODO: Rewrite this to a reusable function or make TypeIdentifier::Tuple hold a Vec
-    let co_varnames_type = reader.read_var().unwrap_or_else(|| {
-        panic!("reading instruction from byte {}", reader.get_current_idx())
-    });
-    if let TypeIdentifier::Ref(_) = co_varnames_type {
-        code.co_varnames = vec![co_varnames_type];
-    }
-    else {
-        let co_varnames_size = reader.read_byte();
-        let mut co_varnames: Vec<TypeIdentifier> = Vec::new();
-        for _ in 0..co_varnames_size {
-            co_varnames.push(reader.read_var().unwrap_or_else(|| {
-                panic!("reading instruction from byte {}", reader.get_current_idx())
-            }));
-        }
-        code.co_varnames = co_varnames;
-    }
-    // println!("{:?}", co_varnames_type);
+    let co_varnames = reader
+        .read_var()
+        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+    code.co_varnames = Box::new(co_varnames);
 
-    // TODO: co_freevars
-    // TODO: This will either be reference to empty tuple r\x03\x00\x00\x00 or a tuple start ')' with its length
-    
-    // TODO: co_cellvars
-    // TODO: This will either be reference to empty tuple r\x03\x00\x00\x00 or a tuple start ')' with its length
-    
+    // co_freevars
+    let co_freevars = reader
+        .read_var()
+        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+    code.co_freevars = Box::new(co_freevars);
+
+    // co_cellvars
+    let co_cellvars = reader
+        .read_var()
+        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+    code.co_cellvars = Box::new(co_cellvars);
+    // println!("{:?}", co_cellvars);
+
     // TODO: co_filename
     // TODO: co_name
     // TODO: co_firstlineno

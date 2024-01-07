@@ -2,7 +2,7 @@ use std::fs;
 mod utils;
 use utils::processing::*;
 use utils::reader::Reader;
-use utils::types::TypeIdentifier;
+use utils::var::Var;
 
 fn main() {
     let filename = "./src/python/foo.pyc";
