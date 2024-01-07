@@ -49,7 +49,7 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     while reader.get_current_idx() < limit {
         let operation = reader
             .read_operation()
-            .unwrap_or_else(|| panic!("reading operation from byte {}", reader.get_current_idx()));
+            .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
         co_code.push(operation);
     }
     code.co_code = co_code;
@@ -74,25 +74,25 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     // co_names - tuple of strings
     let co_names = reader
         .read_var()
-        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+        .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
     code.co_names = Box::new(co_names);
 
     // co_varnames
     let co_varnames = reader
         .read_var()
-        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+        .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
     code.co_varnames = Box::new(co_varnames);
 
     // co_freevars
     let co_freevars = reader
         .read_var()
-        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+        .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
     code.co_freevars = Box::new(co_freevars);
 
     // co_cellvars
     let co_cellvars = reader
         .read_var()
-        .unwrap_or_else(|| panic!("reading var from byte {}", reader.get_current_idx()));
+        .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
     code.co_cellvars = Box::new(co_cellvars);
     // println!("{:?}", co_cellvars);
 

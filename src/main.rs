@@ -12,6 +12,7 @@ fn main() {
     let mut reader = Reader {
         current_idx: 0,
         contents,
+        last_operation: "init".to_string()
     };
     let code = process_code_block(&mut reader);
     println!("{:?}", code);
