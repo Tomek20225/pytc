@@ -93,7 +93,7 @@ impl Reader {
         str_res
     }
 
-    pub fn read_instruction(&mut self) -> Option<Operation> {
+    pub fn read_operation(&mut self) -> Option<Operation> {
         // TODO: EOF case
         let byte = *self
             .get()

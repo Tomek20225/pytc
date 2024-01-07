@@ -64,7 +64,7 @@ impl TypeIdentifier {
                 &b'r' => Some(TypeIdentifier::Ref(reader.read_ulong())),
                 0xda => Some(TypeIdentifier::ShortAsciiInterned(reader.read_string())), // TODO: Check why this gets caught by FlagRef and if it should
                 b'Z' => Some(TypeIdentifier::ShortAsciiInterned(reader.read_string())),
-                &b')' => Some(TypeIdentifier::SmallTuple),
+                &b')' => Some(TypeIdentifier::SmallTuple), // TODO: Make it accept the whole Vec?
                 _ => None,
             }
         }
