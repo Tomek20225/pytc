@@ -71,7 +71,7 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     co_const.push(reader.read_var().expect("reading fifth const"));
     code.co_const = co_const;
 
-    // TODO: co_names - tuple of strings
+    // co_names - tuple of strings
     // TODO: This will either be reference to empty tuple r\x03\x00\x00\x00 or a tuple start ')' with its length
     // Skip 1 byte representing start of a co_names tuple, i.e. ')'
     reader.next();
@@ -84,7 +84,8 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     }
     code.co_names = co_names;
 
-    // TODO: co_varnames
+    // co_varnames
+    // TODO: Rewrite this to a reusable function or make TypeIdentifier::Tuple hold a Vec
     let co_varnames_type = reader.read_var().unwrap_or_else(|| {
         panic!("reading instruction from byte {}", reader.get_current_idx())
     });
