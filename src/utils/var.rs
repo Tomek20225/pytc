@@ -6,8 +6,10 @@ const FLAG_REF: u8 = 0x80; // with a type, add obj to index
 #[derive(Debug, Default)]
 pub enum Var {
     #[default]
+    Null,                       // 0
     None,                       // N
     True,                       // T
+    False,                      // F
     Int(i32),                   // i
     Long(i32),                  // l
     Code(CodeBlock),            // c
@@ -18,8 +20,6 @@ pub enum Var {
     ShortAsciiInterned(String), // \xda (218) or Z
     SmallTuple(Vec<Var>),       // )
 
-                                // NULL               '0'
-                                // FALSE              'F'
                                 // STOPITER           'S'
                                 // ELLIPSIS           '.'
                                 // INT64              'I'
@@ -56,8 +56,10 @@ impl Var {
             )?)))
         } else {
             match byte {
+                b'0' => Some(Var::Null),
                 b'N' => Some(Var::None),
                 b'T' => Some(Var::True),
+                b'F' => Some(Var::False),
                 b'i' => Some(Var::Int(reader.read_int())),
                 b'l' => Some(Var::Long(reader.read_long())),
                 b'c' => Some(Var::Code(reader.read_code())),

@@ -56,6 +56,7 @@ impl Reader {
         self.current_idx >= self.contents.len()
     }
 
+    // TODO: Make the last_operation a Vec containing the history of operations and calls within Reader
     pub fn get_error_msg(&self) -> String {
         format!(
             "Attempting to {} b'{}' on idx {}",
@@ -256,6 +257,7 @@ impl Reader {
             .read_var()
             .unwrap_or_else(|| panic!("{}", self.get_error_msg()));
 
+        // Proper .pyc file has to start with either a code block or a reference to it
         match code {
             Var::Code(code_block) => Some(code_block),
             Var::FlagRef(boxed_var) => match *boxed_var {

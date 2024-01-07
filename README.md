@@ -18,5 +18,7 @@ It uses generated Python bytecode (.pyc files) to transpile the instructions to 
 
 ## Todo:
 - [x] Create a Python script to generate the .pyc file
-- [ ] Map the basic Python binary in Rust
-- [ ] Transpile the results to C
+- [x] Map the basic Python binary in Rust
+- [ ] Transpile the basic results to C
+- [ ] Map the extended Python binary in Rust
+- [ ] Transpile the extended results to C
