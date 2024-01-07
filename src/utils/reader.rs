@@ -100,9 +100,20 @@ impl Reader {
         self.read_long()
     }
 
+    pub fn read_short_string(&mut self) -> String {
+        self.set_last_operation("read short string");
+        let len = self.read_byte();
+        let mut str_res: String = String::from("");
+        for _ in 0..len {
+            let char: char = self.read_char();
+            str_res.push(char);
+        }
+        str_res
+    }
+
     pub fn read_string(&mut self) -> String {
         self.set_last_operation("read string");
-        let len = self.read_byte();
+        let len = self.read_ulong();
         let mut str_res: String = String::from("");
         for _ in 0..len {
             let char: char = self.read_char();

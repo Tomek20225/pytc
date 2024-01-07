@@ -17,10 +17,10 @@ pub struct CodeBlock {
     pub co_varnames: Box<Var>,
     pub co_freevars: Box<Var>,
     pub co_cellvars: Box<Var>,
-    pub co_filename: Vec<u8>, // tbd
-    pub co_name: String,      // tbd
+    pub co_filename: Box<Var>,
+    pub co_name: Box<Var>,
     pub co_firstlineno: i32,
-    pub co_lnotab: Vec<u8>, // tbd
+    pub co_lnotab: Box<Var>,
 }
 
 // TODO: Implement a better way of compiling the error messages
@@ -40,7 +40,7 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     code.co_posonlyargcount = reader.read_long();
     code.co_stacksize = reader.read_long();
     code.co_flags = reader.read_long();
-    reader.next(); // skip 1 byte flag representing the co_code_size, i.e. 's'
+    reader.next(); // skip 1 byte flag representing the co_code_size, i.e. 's' (string)
     code.co_code_size = reader.read_long();
 
     // Operations (next co_code_size bytes)
@@ -94,12 +94,30 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
         .read_var()
         .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
     code.co_cellvars = Box::new(co_cellvars);
-    // println!("{:?}", co_cellvars);
 
-    // TODO: co_filename
-    // TODO: co_name
-    // TODO: co_firstlineno
-    // TODO: co_lnotab
+    // co_filename
+    let co_filename = reader
+        .read_var()
+        .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
+    code.co_filename = Box::new(co_filename);
+
+    // co_name
+    let co_name = reader
+        .read_var()
+        .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
+    code.co_name = Box::new(co_name);
+
+    // co_firstlineno
+    let co_firstlineno = reader.read_long();
+    code.co_firstlineno = co_firstlineno;
+
+    // co_lnotab
+    // Probably something wrong got read here, but this doesn't matter - it's unused
+    // This should be a mapping of bytecode offset to line locations in Python file
+    let co_lnotab = reader
+        .read_var()
+        .unwrap_or_else(|| panic!("{}", reader.get_error_msg()));
+    code.co_lnotab = Box::new(co_lnotab);
 
     code
 }

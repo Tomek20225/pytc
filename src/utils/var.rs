@@ -7,12 +7,13 @@ const FLAG_REF: u8 = 0x80; // with a type, add obj to index
 pub enum Var {
     #[default] // N
     None,
-    True, // T
+    True,                       // T
     Int(i32),                   // i
     Long(i32),                  // l
     Code(CodeBlock),            // c
     Ref(u32),                   // r - seems to be an address
     FlagRef(Box<Var>),          // '\x80' with a type
+    String(String),             // s, also used for coded objects
     ShortAsciiInterned(String), // \xda (218) or Z    ? probably, for now treated as a string
     SmallTuple(Vec<Var>),       // )
 
@@ -64,7 +65,8 @@ impl Var {
                     ..Default::default()
                 })),
                 &b'r' => Some(Var::Ref(reader.read_ulong())),
-                0xda | b'Z' => Some(Var::ShortAsciiInterned(reader.read_string())), // TODO: Check why this gets caught by FlagRef and if it should
+                &b's' => Some(Var::String(reader.read_string())),
+                0xda | b'Z' | 0xfa => Some(Var::ShortAsciiInterned(reader.read_short_string())), // TODO: Check why this gets caught by FlagRef and if it should
                 &b')' => Some(Var::SmallTuple(reader.read_tuple())),
                 _ => None,
             }
