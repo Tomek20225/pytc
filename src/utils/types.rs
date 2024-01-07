@@ -10,14 +10,14 @@ pub enum TypeIdentifier {
     Int(i32),                     // i
     Long(i32),                    // l
     Code(CodeBlock),              // c
-    Ref(u32),                     // r
+    Ref(u32),                     // r - seems to be an address
     FlagRef(Box<TypeIdentifier>), // '\x80' with a type
+    ShortAsciiInterned(String),   // \xda (218) or Z    ? probably, for now treated as a string
     SmallTuple,                   // )
 
                                   // NULL               '0'
                                   // NONE               'N'
                                   // FALSE              'F'
-                                  // TRUE               'T'
                                   // STOPITER           'S'
                                   // ELLIPSIS           '.'
                                   // INT64              'I'
@@ -27,11 +27,9 @@ pub enum TypeIdentifier {
                                   // BINARY_COMPLEX     'y'
                                   // STRING             's'
                                   // INTERNED           't'
-                                  // REF                'r'
                                   // TUPLE              '('
                                   // LIST               '['
                                   // DICT               '{'
-                                  // CODE               'c'
                                   // UNICODE            'u'
                                   // UNKNOWN            '?'
                                   // SET                '<'
@@ -64,6 +62,8 @@ impl TypeIdentifier {
                     ..Default::default()
                 })),
                 &b'r' => Some(TypeIdentifier::Ref(reader.read_ulong())),
+                0xda => Some(TypeIdentifier::ShortAsciiInterned(reader.read_string())), // TODO: Check why this gets caught by FlagRef and if it should
+                b'Z' => Some(TypeIdentifier::ShortAsciiInterned(reader.read_string())),
                 &b')' => Some(TypeIdentifier::SmallTuple),
                 _ => None,
             }

@@ -13,16 +13,17 @@ pub struct CodeBlock {
     pub co_code_size: i32,
     pub co_code: Vec<Operation>,
     pub co_const: Vec<TypeIdentifier>,
-    pub co_names: Vec<String>, // tbd,
-    pub co_varnames: Vec<u8>,  // tbd
-    pub co_freevars: Vec<u8>,  // tbd
-    pub co_cellvars: Vec<u8>,  // tbd
-    pub co_filename: Vec<u8>,  // tbd
-    pub co_name: String,       // tbd
+    pub co_names: Vec<TypeIdentifier>,
+    pub co_varnames: Vec<u8>, // tbd
+    pub co_freevars: Vec<u8>, // tbd
+    pub co_cellvars: Vec<u8>, // tbd
+    pub co_filename: Vec<u8>, // tbd
+    pub co_name: String,      // tbd
     pub co_firstlineno: i32,
     pub co_lnotab: Vec<u8>, // tbd
 }
 
+// TODO: Implement a better way of compiling the error messages
 pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     let mut code = CodeBlock {
         ..Default::default()
@@ -39,7 +40,7 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     code.co_posonlyargcount = reader.read_long();
     code.co_stacksize = reader.read_long();
     code.co_flags = reader.read_long();
-    reader.next(); // skip 1 byte flag representing the co_code_size, 's'
+    reader.next(); // skip 1 byte flag representing the co_code_size, i.e. 's'
     code.co_code_size = reader.read_long();
 
     // Instructions (next co_code_size bytes)
@@ -53,8 +54,8 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     }
     code.co_code = co_code;
 
-    // TODO: co_consts - each const can be a CodeBlock
-    // Skip 1 byte representing start of a co_consts tuple
+    // co_consts - tuple of typed variables, including CodeBlocks
+    // Skip 1 byte representing start of a co_consts tuple, i.e. ')'
     // TypeIdentifier::from_byte(&reader.read_byte()).expect("reading co_const size");
     reader.next();
     let co_const_size = reader.read_byte();
@@ -70,7 +71,19 @@ pub fn process_code_block(reader: &mut Reader) -> CodeBlock {
     co_const.push(reader.read_var().expect("reading fifth const"));
     code.co_const = co_const;
 
-    // TODO: co_names
+    // TODO: co_names - tuple of strings
+    // Skip 1 byte representing start of a co_names tuple, i.e. ')'
+    reader.next();
+    let co_names_size = reader.read_byte();
+    let mut co_names: Vec<TypeIdentifier> = Vec::new();
+    for _ in 0..co_names_size {
+        co_names.push(reader.read_var().unwrap_or_else(|| {
+            panic!("reading instruction from byte {}", reader.get_current_idx())
+        }));
+    }
+    code.co_names = co_names;
+    // println!("{:?}", test);
+
     // TODO: co_varnames
     // TODO: co_freevars
     // TODO: co_cellvars

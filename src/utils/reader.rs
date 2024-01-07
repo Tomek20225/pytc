@@ -76,6 +76,23 @@ impl Reader {
         self.read_long()
     }
 
+    pub fn read_string(&mut self) -> String {
+        let len = *self
+            .get()
+            .unwrap_or_else(|| panic!("reading byte on idx {}", self.current_idx));
+        self.next();
+        let mut str_res: String = String::from("");
+        for _ in 0..len {
+            let byte = *self
+                .get()
+                .unwrap_or_else(|| panic!("reading byte on idx {}", self.current_idx));
+            let char: char = byte as char;
+            str_res.push(char);
+            self.next();
+        }
+        str_res
+    }
+
     pub fn read_instruction(&mut self) -> Option<Operation> {
         // TODO: EOF case
         let byte = *self
@@ -89,7 +106,6 @@ impl Reader {
         let byte = *self
             .get()
             .unwrap_or_else(|| panic!("reading byte on idx {}", self.current_idx));
-        println!("{}", byte);
         self.next();
         TypeIdentifier::from_byte(&byte, self)
     }
