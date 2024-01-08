@@ -7,7 +7,10 @@ use utils::transpiler::Transpiler;
 
 fn main() {
     // Read the input file into the Vec of bytes
-    let input_file: &str = "./src/python/foo.pyc"; // TODO: Make this assignable through CLI
+    // TODO: Make this assignable through CLI
+    // TODO: Accept the .py file and use Python CLI to generate the .pyc
+    // TODO: Accept the directory and find the .py files in there, create .pyc files and then transpile them
+    let input_file: &str = "./src/python/foo.pyc";
     let file_path: &Path = Path::new(input_file);
     let contents = fs::read(file_path).expect("Couldn't read the given file");
 
@@ -20,9 +23,7 @@ fn main() {
     println!("{:?}", code);
 
     // Transpile the code into C
-    let transpiler = Transpiler {
-        code
-    };
+    let transpiler = Transpiler { code };
     let c_str = transpiler.transpile_to_c();
 
     // Create a temporary C file to hold the transpiled code
