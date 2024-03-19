@@ -26,10 +26,18 @@ pub struct CodeBlock {
 pub struct Reader {
     pub current_idx: usize,
     pub contents: Vec<u8>,
-    pub last_operation: String, // TODO: Make this private
+    last_operation: String,
 }
 
 impl Reader {
+    pub fn new(contents: Vec<u8>) -> Reader {
+        Reader {
+            current_idx: 0,
+            contents,
+            last_operation: "init".to_string()
+        }
+    }
+
     pub fn get_current_idx(&self) -> usize {
         self.current_idx
     }
@@ -272,16 +280,6 @@ impl Reader {
                 _ => None,
             },
             _ => None,
-        }
-    }
-}
-
-impl Default for Reader {
-    fn default() -> Self {
-        Reader {
-            current_idx: 0,
-            contents: Vec::new(),
-            last_operation: "init".to_string()
         }
     }
 }

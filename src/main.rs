@@ -15,10 +15,7 @@ fn main() {
     let contents = fs::read(file_path).expect("Couldn't read the given file");
 
     // Parse the binary .pyc file
-    let mut reader = Reader {
-        contents,
-        ..Default::default()
-    };
+    let mut reader = Reader::new(contents);
     let code = reader.read_file().expect("Couldn't parse the given file");
     println!("{:?}", code);
 
