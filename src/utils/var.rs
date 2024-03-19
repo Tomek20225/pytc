@@ -14,7 +14,7 @@ pub enum Var {
     Long(i32),                  // l
     Code(CodeBlock),            // c
     Ref(u32),                   // r - seems to be an address
-    FlagRef(Box<Var>),          // '\x80' with a type
+    FlagRef(Box<Var>),          // '\x80' with a type, points to external refs vector, used to determine whether a serialized object should be tracked for potential future references within the serialized data stream
     String(String),             // s, also used for coded objects
     ShortAscii(String),         // \xfa (250) or z
     ShortAsciiInterned(String), // \xda (218) or Z

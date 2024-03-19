@@ -12,9 +12,9 @@ code_obj_compile = compile(source_code, source_py, "exec")
 data = marshal.dumps(code_obj_compile)
 
 print(data)
-out_pyc = f"./{source_name}.pyc"
-with open(out_pyc, 'wb') as f_out:
-    f_out.write(data)
+# out_pyc = f"./{source_name}.pyc"
+# with open(out_pyc, 'wb') as f_out:
+#     f_out.write(data)
 
 
 # Disassembly
