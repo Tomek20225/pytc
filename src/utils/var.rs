@@ -48,12 +48,36 @@ pub enum Var {
 
 impl Var {
     pub fn from_byte(byte: &u8, reader: &mut Reader) -> Option<Self> {
+        // FLAG_REF is set
         if byte & FLAG_REF != 0 {
-            // FLAG_REF is set, extract the type it references from lower 7 bits
-            Some(Var::FlagRef(Box::new(Var::from_byte(
+            // Get current amount of refs
+            // If there is one, it means it's the main CodeBlock
+            // In that case returning Var::Ref shouldn't happen
+            // TODO: Replace this dirty fix with something appropriate
+            let is_main_code_block = reader.get_refs_len() == 0;
+            if is_main_code_block {
+                reader.push_ref(Var::None);
+            }
+
+            // Extract the type the flag references from lower 7 bits
+            let var = Var::from_byte(
                 &(byte & 0x7F),
                 reader,
-            )?)))
+            )?;
+
+            // Push the var to refs vector and get the index of last element
+            // if it isn't the main CodeBlock
+            //
+            // This is backwards from original CPython implementation,
+            // as it stores the var in a vector and then returns a Ref
+            // instead of returning the var wrapped in FlagRef and pushing the reference to the refs vector
+            if !is_main_code_block {
+                let idx = reader.push_ref(var);
+                return Some(Var::Ref(idx.try_into().expect("usize in Var:from_byte to convert to u32")));
+            }
+            
+            // Return the var, as it is the main CodeBlock
+            Some(var)
         } else {
             match byte {
                 b'0' => Some(Var::Null),

@@ -24,9 +24,10 @@ pub struct CodeBlock {
 
 #[derive(Debug)]
 pub struct Reader {
-    pub current_idx: usize,
-    pub contents: Vec<u8>,
+    current_idx: usize,
+    contents: Vec<u8>,
     last_operation: String,
+    refs: Vec<Var>,
 }
 
 impl Reader {
@@ -34,8 +35,18 @@ impl Reader {
         Reader {
             current_idx: 0,
             contents,
-            last_operation: "init".to_string()
+            last_operation: "init".to_string(),
+            refs: Vec::new(),
         }
+    }
+
+    pub fn get_refs_len(&self) -> usize {
+        self.refs.len()
+    }
+
+    pub fn push_ref(&mut self, var: Var) -> usize {
+        self.refs.push(var);
+        self.refs.len() - 1
     }
 
     pub fn get_current_idx(&self) -> usize {
@@ -271,6 +282,8 @@ impl Reader {
 
         // Go back to the beginning of the file
         self.current_idx = 0;
+
+        println!("{:?}", &self.refs);
 
         // Proper .pyc file has to start with either a code block or a reference to it
         match code {
