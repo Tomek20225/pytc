@@ -40,6 +40,10 @@ impl Reader {
         }
     }
 
+    pub fn get_refs(&self) -> &Vec<Var> {
+        &self.refs
+    }
+
     pub fn get_refs_len(&self) -> usize {
         self.refs.len()
     }
@@ -282,8 +286,6 @@ impl Reader {
 
         // Go back to the beginning of the file
         self.current_idx = 0;
-
-        println!("{:?}", &self.refs);
 
         // Proper .pyc file has to start with either a code block or a reference to it
         match code {
