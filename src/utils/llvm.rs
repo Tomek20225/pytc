@@ -1,12 +1,8 @@
 use super::{code::CodeBlock, operations::Operation, var::Var};
-use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::Module;
 use inkwell::types::{BasicType, BasicTypeEnum};
-use inkwell::values::FunctionValue;
 use std::collections::HashMap;
 use std::fs;
-use std::hash::Hash;
 use std::io::Write;
 use std::path::Path;
 
@@ -20,28 +16,6 @@ pub struct LlvmCompiler {
 impl LlvmCompiler {
     pub fn new(code: CodeBlock, refs: Vec<Var>) -> LlvmCompiler {
         LlvmCompiler { code, refs }
-    }
-
-    fn create_function<'a>(
-        &'a self,
-        context: &'a Context,
-        module: &Module<'a>,
-    ) -> FunctionValue<'_> {
-        let i32_type = context.i32_type();
-        let fn_type = i32_type.fn_type(&[], false);
-        let function = module.add_function("main", fn_type, None);
-
-        let basic_block = context.append_basic_block(function, "entry");
-        function
-    }
-
-    fn add_instructions(&self, builder: &Builder<'_>, function: FunctionValue<'_>) {
-        let entry = function.get_first_basic_block().unwrap();
-        builder.position_at_end(entry);
-
-        let i32_type = function.get_type().get_context().i32_type();
-        let const_int = i32_type.const_int(42, false);
-        builder.build_return(Some(&const_int));
     }
 
     pub fn generate_ir(&self) -> String {
