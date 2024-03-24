@@ -4,7 +4,9 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::{BasicType, BasicTypeEnum};
 use inkwell::values::FunctionValue;
+use std::collections::HashMap;
 use std::fs;
+use std::hash::Hash;
 use std::io::Write;
 use std::path::Path;
 
@@ -61,23 +63,26 @@ impl LlvmCompiler {
             } else {
                 String::from("main")
             };
-            let function = module.add_function("main", fn_type, None);
+            let function = module.add_function(&fn_name, fn_type, None);
             let entry = context.append_basic_block(function, "entry");
             builder.position_at_end(entry);
 
             // Variable preparation
             let consts = code_block.get_consts(&self.refs);
             let names = code_block.get_names(&self.refs);
+            let mut variables: HashMap<&String, &Var> = HashMap::new();
 
             // Iteration through each operation of the code block
             for op in code_block.get_operations() {
                 println!("{:?}: {:?}", code_block.get_name(&self.refs), op);
+
                 match op {
                     Operation::LoadConst(i) => stack.push(consts[*i as usize]),
                     Operation::StoreName(i) => {
                         let name = &names[*i as usize];
-                        let var = stack.pop().unwrap();
+                        let var = stack.pop().expect("stack to contain at least one element");
                         let var_type = var.get_type(&context);
+                        variables.insert(name, var);
 
                         println!("declaring {:?}: {:?} = {:?}", name, var_type, var_type);
 
@@ -95,6 +100,13 @@ impl LlvmCompiler {
                             "llvm to declare a variable of type {:?}",
                             var_type
                         ));
+                    }
+                    Operation::LoadName(i) => {
+                        let name = &names[*i as usize];
+                        let var = *variables
+                            .get(name)
+                            .expect("loaded variable to be already declared");
+                        stack.push(var);
                     }
                     _ => todo!("operation {:?}", op),
                 }
