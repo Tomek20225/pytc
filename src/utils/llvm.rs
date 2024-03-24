@@ -1,4 +1,4 @@
-use super::{operations::Operation, reader::CodeBlock, var::Var};
+use super::{operations::Operation, code::CodeBlock, var::Var};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::builder::Builder;
@@ -9,15 +9,15 @@ use std::io::Write;
 
 #[derive(Debug)]
 pub struct LlvmCompiler {
-    instructions: CodeBlock,
+    code: CodeBlock,
     refs: Vec<Var>,
 }
 
 // TODO: Make the IR generator use the instructions and refs it was given
 impl LlvmCompiler {
-    pub fn new(instructions: CodeBlock, refs: Vec<Var>) -> LlvmCompiler {
+    pub fn new(code: CodeBlock, refs: Vec<Var>) -> LlvmCompiler {
         LlvmCompiler {
-            instructions,
+            code,
             refs,
         }
     }
@@ -42,7 +42,10 @@ impl LlvmCompiler {
 
     pub fn generate_ir(&self) -> String {
         let context = Context::create();
-        let module = context.create_module("my_module");
+
+        let module_name = &self.code.get_name(&self.refs);
+        let module = context.create_module(module_name);
+        
         let builder = context.create_builder();
 
         let function = self.create_function(&context, &module);

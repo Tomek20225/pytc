@@ -1,3 +1,4 @@
+pub mod code;
 pub mod llvm;
 pub mod operations;
 pub mod reader;

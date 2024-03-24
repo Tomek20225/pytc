@@ -1,4 +1,4 @@
-use super::{reader::CodeBlock, reader::Reader};
+use super::{code::CodeBlock, reader::Reader};
 use std::str;
 
 const FLAG_REF: u8 = 0x80; // with a type, add obj to index
@@ -101,4 +101,23 @@ impl Var {
             }
         }
     }
+
+    // pub fn unpack(&self) {
+    //     match self {
+    //         Var::Null => todo!(),
+    //         Var::None => todo!(),
+    //         Var::True => todo!(),
+    //         Var::False => todo!(),
+    //         Var::Int(_) => todo!(),
+    //         Var::Long(_) => todo!(),
+    //         Var::Code(_) => todo!(),
+    //         Var::Ref(_) => todo!(),
+    //         Var::FlagRef(_) => todo!(),
+    //         Var::String(_) => todo!(),
+    //         Var::ShortAscii(_) => todo!(),
+    //         Var::ShortAsciiInterned(_) => todo!(),
+    //         Var::SmallTuple(_) => todo!(),
+    //         _ => todo!()
+    //     }
+    // }
 }
