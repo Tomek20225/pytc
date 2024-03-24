@@ -1,4 +1,8 @@
 use super::{code::CodeBlock, reader::Reader};
+use inkwell::{
+    context::Context,
+    types::{BasicType, BasicTypeEnum},
+};
 use std::str;
 
 const FLAG_REF: u8 = 0x80; // with a type, add obj to index
@@ -7,7 +11,7 @@ const FLAG_REF: u8 = 0x80; // with a type, add obj to index
 #[derive(Debug, Default, Clone)]
 pub enum Var {
     #[default]
-    Null,                       // 0
+    Null, // 0
     None,                       // N
     True,                       // T
     False,                      // F
@@ -15,36 +19,36 @@ pub enum Var {
     Long(i32),                  // l
     Code(CodeBlock),            // c
     Ref(u32),                   // r - seems to be an address
-    FlagRef(Box<Var>),          // '\x80' with a type, points to external refs vector, used to determine whether a serialized object should be tracked for potential future references within the serialized data stream
-    String(String),             // s, also used for coded objects
-    ShortAscii(String),         // \xfa (250) or z
+    FlagRef(Box<Var>), // '\x80' with a type, points to external refs vector, used to determine whether a serialized object should be tracked for potential future references within the serialized data stream
+    String(String),    // s, also used for coded objects
+    ShortAscii(String), // \xfa (250) or z
     ShortAsciiInterned(String), // \xda (218) or Z
-    SmallTuple(Vec<Var>),       // )
+    SmallTuple(Vec<Var>), // )
 
-                                // STOPITER           'S'
-                                // ELLIPSIS           '.'
-                                // INT64              'I'
-                                // FLOAT              'f'
-                                // BINARY_FLOAT       'g'
-                                // COMPLEX            'x'
-                                // BINARY_COMPLEX     'y'
-                                // STRING             's'
-                                // INTERNED           't'
-                                // TUPLE              '('
-                                // LIST               '['
-                                // DICT               '{'
-                                // UNICODE            'u'
-                                // UNKNOWN            '?'
-                                // SET                '<'
-                                // FROZENSET          '>'
-                                // ASCII              'a'
-                                // ASCII_INTERNED     'A'
-                                // SMALL_TUPLE        ')'
-                                // SHORT_ASCII_INTERNED 'Z'
-                                // WFERR_OK 0
-                                // WFERR_UNMARSHALLABLE 1
-                                // WFERR_NESTEDTOODEEP 2
-                                // WFERR_NOMEMORY 3
+                       // STOPITER           'S'
+                       // ELLIPSIS           '.'
+                       // INT64              'I'
+                       // FLOAT              'f'
+                       // BINARY_FLOAT       'g'
+                       // COMPLEX            'x'
+                       // BINARY_COMPLEX     'y'
+                       // STRING             's'
+                       // INTERNED           't'
+                       // TUPLE              '('
+                       // LIST               '['
+                       // DICT               '{'
+                       // UNICODE            'u'
+                       // UNKNOWN            '?'
+                       // SET                '<'
+                       // FROZENSET          '>'
+                       // ASCII              'a'
+                       // ASCII_INTERNED     'A'
+                       // SMALL_TUPLE        ')'
+                       // SHORT_ASCII_INTERNED 'Z'
+                       // WFERR_OK 0
+                       // WFERR_UNMARSHALLABLE 1
+                       // WFERR_NESTEDTOODEEP 2
+                       // WFERR_NOMEMORY 3
 }
 
 impl Var {
@@ -61,10 +65,7 @@ impl Var {
             }
 
             // Extract the type the flag references from lower 7 bits
-            let var = Var::from_byte(
-                &(byte & 0x7F),
-                reader,
-            )?;
+            let var = Var::from_byte(&(byte & 0x7F), reader)?;
 
             // Push the var to refs vector and get the index of last element
             // if it isn't the main CodeBlock
@@ -74,9 +75,12 @@ impl Var {
             // instead of returning the var wrapped in FlagRef and pushing the reference to the refs vector
             if !is_main_code_block {
                 let idx = reader.push_ref(var);
-                return Some(Var::Ref(idx.try_into().expect("usize in Var:from_byte to convert to u32")));
+                return Some(Var::Ref(
+                    idx.try_into()
+                        .expect("usize in Var:from_byte to convert to u32"),
+                ));
             }
-            
+
             // Return the var, as it is the main CodeBlock
             Some(var)
         } else {
@@ -96,28 +100,30 @@ impl Var {
                 _ => {
                     let bytes = vec![*byte];
                     todo!("type {} (value {})", str::from_utf8(&bytes).unwrap(), byte)
-                }
-                // _ => None,
+                } // _ => None,
             }
         }
     }
 
-    // pub fn unpack(&self) {
-    //     match self {
-    //         Var::Null => todo!(),
-    //         Var::None => todo!(),
-    //         Var::True => todo!(),
-    //         Var::False => todo!(),
-    //         Var::Int(_) => todo!(),
-    //         Var::Long(_) => todo!(),
-    //         Var::Code(_) => todo!(),
-    //         Var::Ref(_) => todo!(),
-    //         Var::FlagRef(_) => todo!(),
-    //         Var::String(_) => todo!(),
-    //         Var::ShortAscii(_) => todo!(),
-    //         Var::ShortAsciiInterned(_) => todo!(),
-    //         Var::SmallTuple(_) => todo!(),
-    //         _ => todo!()
-    //     }
-    // }
+    pub fn get_type<'a>(&'a self, ctx: &'a Context) -> BasicTypeEnum {
+        match self {
+            Var::Int(_) => ctx.i32_type().as_basic_type_enum(),
+            _ => todo!("can't get type of var {:?}", self),
+        }
+    }
+
+    pub fn as_int(&self) -> Option<i32> {
+        if let Var::Int(i) = self {
+            Some(*i)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_string(&self) -> Option<String> {
+        match self {
+            Var::String(s) | Var::ShortAscii(s) | Var::ShortAsciiInterned(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
 }
