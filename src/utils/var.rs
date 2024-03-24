@@ -1,9 +1,10 @@
 use super::{reader::CodeBlock, reader::Reader};
+use std::str;
 
 const FLAG_REF: u8 = 0x80; // with a type, add obj to index
 
 // TODO: Finish translating types into an enum
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum Var {
     #[default]
     Null,                       // 0
@@ -92,7 +93,11 @@ impl Var {
                 0xfa | b'z' => Some(Var::ShortAscii(reader.read_short_string())), // TODO: Check why this gets caught by FlagRef and if it should
                 0xda | b'Z' => Some(Var::ShortAsciiInterned(reader.read_short_string())), // TODO: Check why this gets caught by FlagRef and if it should
                 &b')' => Some(Var::SmallTuple(reader.read_tuple())),
-                _ => None,
+                _ => {
+                    let bytes = vec![*byte];
+                    todo!("type {} (value {})", str::from_utf8(&bytes).unwrap(), byte)
+                }
+                // _ => None,
             }
         }
     }

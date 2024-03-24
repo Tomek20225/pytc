@@ -1,6 +1,6 @@
 use super::reader::Reader;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operation {
     PopTop(u8),
     RotTwo(u8),

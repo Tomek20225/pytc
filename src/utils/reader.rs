@@ -1,6 +1,6 @@
 use super::{operations::Operation, var::Var};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct CodeBlock {
     pub co_argcount: i32,               // number of arguments (not including keyword only arguments, * or ** args)
     pub co_posonlyargcount: i32,        // number of positional only arguments
