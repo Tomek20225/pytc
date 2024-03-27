@@ -1,9 +1,9 @@
 a = 1 
 b = 2 
-c = a + b 
+c = a + b
 
-def baz(x,y):
-    return x * y
+# def baz(x,y):
+#     return x * y
 
-multiplication = baz(a,b)
-square = multiplication ** 2
+# multiplication = baz(a,b)
+# square = multiplication ** 2

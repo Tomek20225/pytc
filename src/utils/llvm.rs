@@ -1,6 +1,7 @@
 use super::{code::CodeBlock, operations::Operation, var::Var};
 use inkwell::context::Context;
 use inkwell::types::{BasicType, BasicTypeEnum};
+use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
@@ -10,6 +11,14 @@ use std::path::Path;
 pub struct LlvmCompiler {
     code: CodeBlock,
     refs: Vec<Var>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LlvmVariable<'a> {
+    v_type: BasicTypeEnum<'a>,
+    ptr: BasicValueEnum<'a>,
+    value: BasicValueEnum<'a>,
+    var: Option<&'a Var>,
 }
 
 // TODO: Make the IR generator use the instructions and refs it was given
@@ -24,7 +33,7 @@ impl LlvmCompiler {
         let builder = context.create_builder();
 
         let code_blocks = self.code.get_code_blocks(&self.refs);
-        let mut stack: Vec<&Var> = vec![];
+        let mut stack: Vec<LlvmVariable> = vec![];
         let mut fn_idx = 0;
 
         // TODO: Objects are possibly CodeBlocks - in that case this code won't work as expected
@@ -44,43 +53,111 @@ impl LlvmCompiler {
             // Variable preparation
             let consts = code_block.get_consts(&self.refs);
             let names = code_block.get_names(&self.refs);
-            let mut variables: HashMap<&String, &Var> = HashMap::new();
+            let mut variables_ptr: HashMap<String, LlvmVariable> = HashMap::new();
 
             // Iteration through each operation of the code block
             for op in code_block.get_operations() {
                 println!("{:?}: {:?}", code_block.get_name(&self.refs), op);
 
                 match op {
-                    Operation::LoadConst(i) => stack.push(consts[*i as usize]),
-                    Operation::StoreName(i) => {
-                        let name = &names[*i as usize];
-                        let var = stack.pop().expect("stack to contain at least one element");
-                        let var_type = var.get_type(&context);
-                        variables.insert(name, var);
+                    Operation::LoadConst(i) => {
+                        let name = String::from("temp");
+                        let var = consts[*i as usize];
 
-                        println!("declaring {:?}: {:?} = {:?}", name, var_type, var_type);
-
-                        let llvm_var = builder
-                            .build_alloca(var_type, name)
-                            .expect("llvm to create a local pointer");
-                        let llvm_var_val = match var_type {
+                        let var_type = match var {
+                            Var::None => context.i32_type().as_basic_type_enum(), // defaults to 0
+                            Var::Int(_) => context.i32_type().as_basic_type_enum(),
+                            _ => todo!("can't get type of var {:?}", var),
+                        };
+                        let var_value = match var_type {
                             BasicTypeEnum::IntType(t) => {
                                 let value = var.as_int().expect("var of type int to be unpacked");
-                                t.const_int(value as u64, false)
+                                let llvm_value = t.const_int(value as u64, false);
+                                BasicValueEnum::IntValue(llvm_value)
                             }
                             _ => todo!("declaring values of type {:?}", var_type),
                         };
-                        builder.build_store(llvm_var, llvm_var_val).expect(&format!(
-                            "llvm to declare a variable of type {:?}",
-                            var_type
-                        ));
+
+                        let llvm_ptr = builder
+                            .build_alloca(var_type, &name)
+                            .expect("llvm to create a local pointer");
+
+                        let llvm_var = LlvmVariable {
+                            ptr: BasicValueEnum::PointerValue(llvm_ptr),
+                            v_type: var_type,
+                            value: var_value,
+                            var: Some(var),
+                        };
+
+                        variables_ptr.insert(name.clone(), llvm_var.clone());
+                        stack.push(llvm_var);
+                    }
+                    Operation::StoreName(i) => {
+                        let name = &names[*i as usize];
+                        let llvm_var = stack.pop().expect("stack to contain at least one element");
+                        llvm_var.ptr.set_name(name);
+                        variables_ptr.remove("temp");
+                        variables_ptr.insert(name.clone(), llvm_var.clone());
+
+                        // println!("declaring {:?}: {:?} = {:?}", llvm_var, var_type, var_val);
+
+                        builder
+                            .build_store(llvm_var.ptr.into_pointer_value(), llvm_var.value)
+                            .expect(&format!(
+                                "llvm to declare a variable of type {:?}",
+                                llvm_var.v_type
+                            ));
                     }
                     Operation::LoadName(i) => {
                         let name = &names[*i as usize];
-                        let var = *variables
+                        let llvm_var = variables_ptr
                             .get(name)
                             .expect("loaded variable to be already declared");
-                        stack.push(var);
+
+                        // TODO: This only supports i32s, while it should be able to handle all types
+                        let llvm_val_ptr = builder
+                            .build_load(
+                                context.i32_type(),
+                                llvm_var.ptr.into_pointer_value(),
+                                &name,
+                            )
+                            .expect("llvm to load the variable");
+                        let mut new_llvm_var = llvm_var.clone();
+                        new_llvm_var.ptr = llvm_val_ptr;
+
+                        stack.push(new_llvm_var);
+                    }
+                    Operation::BinaryAdd(_) => {
+                        let b = stack
+                            .pop()
+                            .expect("stack to have the first of two elements");
+                        let a = stack
+                            .pop()
+                            .expect("stack to have the second of two elements");
+
+                        let a_val = a.ptr.into_int_value();
+                        let b_val = b.ptr.into_int_value();
+
+                        let llvm_val = builder
+                            .build_int_add(a_val, b_val, "sum")
+                            .expect("adding ints to work");
+                        let llvm_ptr = builder
+                            .build_alloca(context.i32_type(), "temp")
+                            .expect("llvm to create a local pointer");
+
+                        let result_var = LlvmVariable {
+                            value: BasicValueEnum::IntValue(llvm_val),
+                            v_type: context.i32_type().as_basic_type_enum(),
+                            var: None,
+                            ptr: llvm_ptr.as_basic_value_enum(),
+                        };
+                        stack.push(result_var);
+                    }
+                    Operation::ReturnValue(_) => {
+                        let llvm_var = stack
+                            .pop()
+                            .expect("stack to contain at least one element");
+                        let _ = builder.build_return(Some(&llvm_var.value));
                     }
                     _ => todo!("operation {:?}", op),
                 }

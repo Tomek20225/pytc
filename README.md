@@ -20,7 +20,7 @@ However, assuming the goal is to speed up Python through compilation, there are 
 
 - [x] Create a Python script to generate the .pycache (.pyc) file
 - [x] Map the basic Python binary in Rust
-- [ ] Try transpilation with method 3
+- [x] Try transpilation with method 3
 - [ ] Map the extended Python binary in Rust
 - [ ] Create a more basic representation of the binary for further processing
 - [ ] Try transpilation with the original method

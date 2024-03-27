@@ -32,7 +32,6 @@ pub enum Var {
                        // BINARY_FLOAT       'g'
                        // COMPLEX            'x'
                        // BINARY_COMPLEX     'y'
-                       // STRING             's'
                        // INTERNED           't'
                        // TUPLE              '('
                        // LIST               '['
@@ -64,8 +63,15 @@ impl Var {
                 reader.push_ref(Var::None);
             }
 
+            println!(
+                "fucked here: {:?} {:?} {:?}",
+                byte,
+                &(byte & 0x7F),
+                is_main_code_block
+            );
             // Extract the type the flag references from lower 7 bits
-            let var = Var::from_byte(&(byte & 0x7F), reader)?;
+            let var = Var::from_byte(&(byte & 0x7F), reader)
+                .expect("flag ref to be correctly read as var it points to");
 
             // Push the var to refs vector and get the index of last element
             // if it isn't the main CodeBlock
@@ -75,10 +81,7 @@ impl Var {
             // instead of returning the var wrapped in FlagRef and pushing the reference to the refs vector
             if !is_main_code_block {
                 let idx = reader.push_ref(var);
-                return Some(Var::Ref(
-                    idx.try_into()
-                        .expect("usize in Var:from_byte to convert to u32"),
-                ));
+                return Some(Var::Ref(idx as u32));
             }
 
             // Return the var, as it is the main CodeBlock
@@ -105,18 +108,18 @@ impl Var {
         }
     }
 
-    pub fn get_type<'a>(&'a self, ctx: &'a Context) -> BasicTypeEnum {
-        match self {
-            Var::Int(_) => ctx.i32_type().as_basic_type_enum(),
-            _ => todo!("can't get type of var {:?}", self),
-        }
-    }
+    // pub fn get_type(&self, ctx: &Context) -> BasicTypeEnum {
+    //     match self {
+    //         Var::Int(_) => ctx.i32_type().as_basic_type_enum(),
+    //         _ => todo!("can't get type of var {:?}", self),
+    //     }
+    // }
 
     pub fn as_int(&self) -> Option<i32> {
-        if let Var::Int(i) = self {
-            Some(*i)
-        } else {
-            None
+        match self {
+            Var::Int(i) => Some(*i),
+            Var::None | Var::Null => Some(0),
+            _ => None,
         }
     }
 

@@ -1,4 +1,7 @@
-use super::{operations::Operation, var::Var, code::CodeBlock};
+use super::{code::CodeBlock, operations::Operation, var::Var};
+
+// TODO: Consider pushing this, code and var modules as a single, separate package
+// making it a dependency of llvm and transpiler modules
 
 #[derive(Debug)]
 pub struct Reader {
@@ -62,9 +65,10 @@ impl Reader {
 
     // TODO: Make the last_operation a Vec containing the history of operations and calls within Reader
     pub fn get_error_msg(&self) -> String {
+        let byte = self.contents[self.current_idx];
         format!(
-            "Attempting to {} b'{}' on idx {}",
-            self.last_operation, self.contents[self.current_idx], self.current_idx
+            "Attempting to {} b'{}' (char: {}, hex: {:x?}) on idx {}",
+            self.last_operation, byte, byte as char, byte, self.current_idx
         )
     }
 
@@ -80,14 +84,18 @@ impl Reader {
 
     pub fn read_byte(&mut self) -> u8 {
         // TODO: EOF case
-        self.set_last_operation("read byte or char");
+        self.set_last_operation("read byte");
         let byte = self.contents[self.current_idx];
         self.next();
         byte
     }
 
     pub fn read_char(&mut self) -> char {
-        self.read_byte() as char
+        // TODO: EOF case
+        self.set_last_operation("read char");
+        let chr = self.contents[self.current_idx] as char;
+        self.next();
+        chr
     }
 
     pub fn read_long(&mut self) -> i32 {
