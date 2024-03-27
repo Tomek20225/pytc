@@ -170,7 +170,8 @@ impl LlvmCompiler {
     }
 
     // TODO: Refactor this or export file reading/writing to a separate struct
-    pub fn save_to_file(&self, input_file: &str, file_path: &Path, ir: &str) {
+    pub fn save_to_file(&self, file_path: &Path, ir: &str) {
+        let input_file = file_path.to_str().unwrap();
         let file_stem = file_path.file_stem().unwrap().to_str().unwrap();
         let file_name = file_path.file_name().unwrap().to_str().unwrap();
         let file_dir = input_file.replace(file_name, "");

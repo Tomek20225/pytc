@@ -1,24 +1,24 @@
-import marshal, types, dis
+import marshal, types, dis, sys
 
 # Marshalling
-source_py = "./foo.py"
-source_name = source_py[2:-3]
+source_py_path = sys.argv[1]
+source_name = source_py_path[:-3]
 
-with open(source_py) as f_source:
+with open(source_py_path) as f_source:
     source_code = f_source.read()
 
-code_obj_compile = compile(source_code, source_py, "exec")
+code_obj_compile = compile(source_code, source_py_path, "exec")
 
 data = marshal.dumps(code_obj_compile)
 
-print(data)
+# print(data)
 out_pyc = f"./{source_name}.pyc"
 with open(out_pyc, 'wb') as f_out:
     f_out.write(data)
 
 
 # Disassembly
-dis.dis(code_obj_compile)
+# dis.dis(code_obj_compile)
 
 for x in code_obj_compile.co_consts:
     if isinstance(x, types.CodeType):
@@ -35,4 +35,4 @@ def print_co_obj_fields(code_obj):
             co_field = getattr(code_obj, name)
             print(f'{name:<20} = {co_field}')
 
-print_co_obj_fields(code_obj_compile)
+# print_co_obj_fields(code_obj_compile)
