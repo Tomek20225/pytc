@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::process::Command;
 
 #[derive(Debug)]
 pub struct LlvmCompiler {
@@ -183,5 +184,53 @@ impl LlvmCompiler {
         out.write_all(ir.as_bytes())
             .expect("Unable to write the data to the LLVM IR file");
         println!("SAVED THE LLVM IR TO: {:?}", out_file_path);
+    }
+
+    pub fn compile_to_assembly(&self, ll_path: &Path, asm_path: &Path) -> std::io::Result<()> {
+        let output = Command::new("llc")
+            .arg(ll_path)
+            .arg("-o")
+            .arg(asm_path)
+            .output()?;
+
+        if !output.status.success() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("llc failed: {}", String::from_utf8_lossy(&output.stderr))
+            ));
+        }
+
+        Ok(())
+    }
+
+    pub fn compile_to_binary(&self, asm_path: &Path, bin_path: &Path) -> std::io::Result<()> {
+        let output = Command::new("gcc")
+            .arg(asm_path)
+            .arg("-o")
+            .arg(bin_path)
+            .output()?;
+
+        if !output.status.success() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("gcc failed: {}", String::from_utf8_lossy(&output.stderr))
+            ));
+        }
+
+        Ok(())
+    }
+
+    pub fn execute_binary(&self, bin_path: &Path) -> std::io::Result<String> {
+        let output = Command::new(bin_path)
+            .output()?;
+
+        if !output.status.success() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Execution failed: {}", String::from_utf8_lossy(&output.stderr))
+            ));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 }

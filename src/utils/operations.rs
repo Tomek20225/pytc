@@ -1,4 +1,5 @@
-use super::reader::Reader;
+use super::pycachereader::PyCacheReader;
+use std::str;
 
 #[derive(Debug, Clone)]
 pub enum Operation {
@@ -132,7 +133,7 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn from_byte(byte: &u8, reader: &mut Reader) -> Option<Self> {
+    pub fn from_byte(byte: &u8, reader: &mut PyCacheReader) -> Option<Self> {
         let next_byte = reader.read_byte();
         match byte {
             1 => Some(Operation::PopTop(next_byte)),
@@ -270,7 +271,10 @@ impl Operation {
             163 => Some(Operation::SetUpdate(next_byte)),
             164 => Some(Operation::DictMerge(next_byte)),
             165 => Some(Operation::DictUpdate(next_byte)),
-            _ => None,
+            _ => {
+                let bytes = vec![*byte];
+                todo!("type {} (value {})", str::from_utf8(&bytes).unwrap(), byte)
+            }
         }
     }
 }

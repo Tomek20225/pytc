@@ -1,2 +1,13 @@
-/target
+# config
 .vscode
+
+# build
+temp
+target
+__pycache__
+*.s
+*.o
+*.ll
+*.pyc
+*.exe
+*.out

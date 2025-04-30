@@ -1,4 +1,4 @@
-use super::{code::CodeBlock, reader::Reader};
+use super::{code::CodeBlock, pycachereader::PyCacheReader};
 use inkwell::{
     context::Context,
     types::{BasicType, BasicTypeEnum},
@@ -19,39 +19,38 @@ pub enum Var {
     Long(i32),                  // l
     Code(CodeBlock),            // c
     Ref(u32),                   // r - seems to be an address
-    FlagRef(Box<Var>), // '\x80' with a type, points to external refs vector, used to determine whether a serialized object should be tracked for potential future references within the serialized data stream
-    String(String),    // s, also used for coded objects
-    ShortAscii(String), // \xfa (250) or z
+    FlagRef(Box<Var>),          // '\x80' with a type, points to external refs vector, used to determine whether a serialized object should be tracked for potential future references within the serialized data stream
+    String(String),             // s, also used for coded objects
+    ShortAscii(String),         // \xfa (250) or z
     ShortAsciiInterned(String), // \xda (218) or Z
-    SmallTuple(Vec<Var>), // )
-
-                       // STOPITER           'S'
-                       // ELLIPSIS           '.'
-                       // INT64              'I'
-                       // FLOAT              'f'
-                       // BINARY_FLOAT       'g'
-                       // COMPLEX            'x'
-                       // BINARY_COMPLEX     'y'
-                       // INTERNED           't'
-                       // TUPLE              '('
-                       // LIST               '['
-                       // DICT               '{'
-                       // UNICODE            'u'
-                       // UNKNOWN            '?'
-                       // SET                '<'
-                       // FROZENSET          '>'
-                       // ASCII              'a'
-                       // ASCII_INTERNED     'A'
-                       // SMALL_TUPLE        ')'
-                       // SHORT_ASCII_INTERNED 'Z'
-                       // WFERR_OK 0
-                       // WFERR_UNMARSHALLABLE 1
-                       // WFERR_NESTEDTOODEEP 2
-                       // WFERR_NOMEMORY 3
+    SmallTuple(Vec<Var>),       // )
+    // STOPITER           'S'
+    // ELLIPSIS           '.'
+    // INT64              'I'
+    // FLOAT              'f'
+    // BINARY_FLOAT       'g'
+    // COMPLEX            'x'
+    // BINARY_COMPLEX     'y'
+    // INTERNED           't'
+    // TUPLE              '('
+    // LIST               '['
+    // DICT               '{'
+    // UNICODE            'u'
+    // UNKNOWN            '?'
+    // SET                '<'
+    // FROZENSET          '>'
+    // ASCII              'a'
+    // ASCII_INTERNED     'A'
+    // SMALL_TUPLE        ')'
+    // SHORT_ASCII_INTERNED 'Z'
+    // WFERR_OK 0
+    // WFERR_UNMARSHALLABLE 1
+    // WFERR_NESTEDTOODEEP 2
+    // WFERR_NOMEMORY 3
 }
 
 impl Var {
-    pub fn from_byte(byte: &u8, reader: &mut Reader) -> Option<Self> {
+    pub fn from_byte(byte: &u8, reader: &mut PyCacheReader) -> Option<Self> {
         // FLAG_REF is set
         if byte & FLAG_REF != 0 {
             // Get current amount of refs
@@ -63,12 +62,6 @@ impl Var {
                 reader.push_ref(Var::None);
             }
 
-            println!(
-                "fucked here: {:?} {:?} {:?}",
-                byte,
-                &(byte & 0x7F),
-                is_main_code_block
-            );
             // Extract the type the flag references from lower 7 bits
             let var = Var::from_byte(&(byte & 0x7F), reader)
                 .expect("flag ref to be correctly read as var it points to");
@@ -100,10 +93,7 @@ impl Var {
                 0xfa | b'z' => Some(Var::ShortAscii(reader.read_short_string())), // TODO: Check why this gets caught by FlagRef and if it should
                 0xda | b'Z' => Some(Var::ShortAsciiInterned(reader.read_short_string())), // TODO: Check why this gets caught by FlagRef and if it should
                 &b')' => Some(Var::SmallTuple(reader.read_tuple())),
-                _ => {
-                    let bytes = vec![*byte];
-                    todo!("type {} (value {})", str::from_utf8(&bytes).unwrap(), byte)
-                } // _ => None,
+                _ => None, // Return None for bytecode instructions and other unhandled types
             }
         }
     }

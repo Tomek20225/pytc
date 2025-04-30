@@ -1,74 +1,82 @@
-use std::fs;
 use std::path::Path;
-use std::process::Command;
+use clap::Parser;
 
 mod utils;
-use utils::reader::Reader;
+use utils::pycachereader::PyCacheReader;
 use utils::llvm::LlvmCompiler;
-// use utils::transpiler::Transpiler;
+use utils::pycachegenerator::PyCacheGenerator;
 
-fn main() {
-    // Read the input file into the Vec of bytes
-    // TODO: Make this assignable through CLI
-    // TODO: Accept the .py file and use Python CLI to generate the .pyc
-    // TODO: Accept the directory and find the .py files in there, create .pyc files and then transpile them
-    let input_file: &str = "./src/python/temp/foo.pyc";
-    let file_path: &Path = Path::new(input_file);
-    println!("{:?}", file_path);
-    let contents = fs::read(file_path).expect("Couldn't read the given file");
+/// A tool to transpile Python bytecode to native code
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Input Python file
+    #[arg(short, long)]
+    input: String,
+}
 
-    // Parse the binary .pyc file
-    let mut reader = Reader::new(contents);
-    let code = reader.read_file().expect("Couldn't parse the given file");
-    let refs = reader.get_refs().clone(); // TODO: Remove the unnecessary clone
+fn validate_input(input_path: &Path) -> Result<(), String> {
+    if !input_path.is_file() {
+        return Err("Error: Input must be a Python (.py) file".to_string());
+    }
 
-    // Display debug info
-    println!("REFS: {:?}\n", refs);
-    println!("CODE: {:?}\n", code);
+    if !input_path.extension().map_or(false, |ext| ext == "py") {
+        return Err("Error: Input file must have .py extension".to_string());
+    }
+
+    Ok(())
+}
+
+fn compile_and_run(input_path: &Path) -> Result<String, String> {
+    // Compile .py to .pyc
+    let pyc_generator = PyCacheGenerator::new();
+    let pyc_path = pyc_generator.compile_py_to_pyc(input_path)
+        .map_err(|e| format!("Failed to compile Python file to bytecode: {}", e))?;
+    
+    // Read and process the .pyc file
+    let mut reader = PyCacheReader::from_file(&pyc_path)
+        .map_err(|e| format!("Couldn't read the .pyc file: {}", e))?;
+    let code = reader.read_file()
+        .ok_or_else(|| "Couldn't parse the .pyc file".to_string())?;
+    let refs = reader.get_refs().clone();
 
     // Generate the LLVM IR
     let llvm_compiler = LlvmCompiler::new(code, refs);
     let llvm_ir = llvm_compiler.generate_ir();
-    llvm_compiler.save_to_file(file_path, &llvm_ir);
+    llvm_compiler.save_to_file(&pyc_path, &llvm_ir);
 
     // Generate assembly code from LLVM IR (llc)
-    let ll_path = "./src/python/temp/foo.ll";
-    let asm_path = "./src/python/temp/foo.s";
+    let ll_path = input_path.parent().unwrap().join(format!("{}.ll", input_path.file_stem().unwrap().to_str().unwrap()));
+    let asm_path = input_path.parent().unwrap().join(format!("{}.s", input_path.file_stem().unwrap().to_str().unwrap()));
 
-    let output = Command::new("llc")
-        .arg(ll_path)
-        .arg("-o")
-        .arg(asm_path)
-        .output()
-        .expect("Failed to run llc");
-
-    if !output.status.success() {
-        panic!("llc failed: {}", String::from_utf8_lossy(&output.stderr));
-    }
+    llvm_compiler.compile_to_assembly(&ll_path, &asm_path)
+        .map_err(|e| format!("Failed to compile LLVM IR to assembly: {}", e))?;
 
     // Compile the assembly code into an executable (gcc)
-    let exe_path = "./src/python/temp/foo";
+    let bin_path = input_path.parent().unwrap().join(input_path.file_stem().unwrap());
 
-    let output = Command::new("gcc")
-        .arg(asm_path)
-        .arg("-o")
-        .arg(exe_path)
-        .output()
-        .expect("Failed to run gcc");
-
-    if !output.status.success() {
-        panic!("gcc failed: {}", String::from_utf8_lossy(&output.stderr));
-    }
+    llvm_compiler.compile_to_binary(&asm_path, &bin_path)
+        .map_err(|e| format!("Failed to compile assembly to binary: {}", e))?;
 
     // Run the compiled executable
-    let output = Command::new(exe_path)
-        .output()
-        .expect("Failed to run the executable");
+    llvm_compiler.execute_binary(&bin_path)
+        .map_err(|e| format!("Failed to run the executable: {}", e))
+}
 
-    if !output.status.success() {
-        panic!("Execution failed: {}", String::from_utf8_lossy(&output.stderr));
+fn main() {
+    let args = Args::parse();
+    let input_path = Path::new(&args.input);
+
+    if let Err(e) = validate_input(input_path) {
+        eprintln!("{}", e);
+        std::process::exit(1);
     }
 
-    // Print the output of the executable
-    println!("\n==== OUTPUT FROM THE EXECUTABLE ====\n{}", String::from_utf8_lossy(&output.stdout));
+    match compile_and_run(input_path) {
+        Ok(output) => println!("\n==== OUTPUT FROM THE EXECUTABLE ====\n{}", output),
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    }
 }
