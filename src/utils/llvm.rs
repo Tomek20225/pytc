@@ -1,7 +1,7 @@
 use super::{code::CodeBlock, operations::Operation, var::Var};
 use inkwell::context::Context;
 use inkwell::types::{BasicType, BasicTypeEnum};
-use inkwell::values::{BasicValue, BasicValueEnum};
+use inkwell::values::BasicValueEnum;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
@@ -19,7 +19,6 @@ pub struct LlvmVariable<'a> {
     v_type: BasicTypeEnum<'a>,
     ptr: BasicValueEnum<'a>,
     value: BasicValueEnum<'a>,
-    var: Option<&'a Var>,
 }
 
 // TODO: Make the IR generator use the instructions and refs it was given
@@ -62,7 +61,6 @@ impl LlvmCompiler {
             ptr: BasicValueEnum::PointerValue(llvm_ptr),
             v_type: var_type,
             value: var_value,
-            var: None, // We don't need to store the original Var anymore
         };
 
         variables_ptr.insert(name.clone(), llvm_var.clone());
@@ -105,15 +103,19 @@ impl LlvmCompiler {
             .get(name)
             .expect("loaded variable to be already declared");
 
-        let llvm_val_ptr = builder
+        let llvm_val = builder
             .build_load(
                 context.i32_type(),
                 llvm_var.ptr.into_pointer_value(),
                 &name,
             )
             .expect("llvm to load the variable");
-        let mut new_llvm_var = llvm_var.clone();
-        new_llvm_var.ptr = llvm_val_ptr;
+        
+        let new_llvm_var = LlvmVariable {
+            v_type: context.i32_type().as_basic_type_enum(),
+            ptr: llvm_var.ptr,  // Keep the original pointer
+            value: llvm_val,    // Store the loaded value
+        };
 
         stack.push(new_llvm_var);
     }
@@ -127,21 +129,37 @@ impl LlvmCompiler {
         let b = stack.pop().expect("stack to have the first of two elements");
         let a = stack.pop().expect("stack to have the second of two elements");
 
-        let a_val = a.ptr.into_int_value();
-        let b_val = b.ptr.into_int_value();
-
         let llvm_val = builder
-            .build_int_add(a_val, b_val, "sum")
+            .build_int_add(a.value.into_int_value(), b.value.into_int_value(), "sum")
             .expect("adding ints to work");
-        let llvm_ptr = builder
-            .build_alloca(context.i32_type(), "temp")
-            .expect("llvm to create a local pointer");
 
+        // Only create a new allocation if we need to store the result
         let result_var = LlvmVariable {
             value: BasicValueEnum::IntValue(llvm_val),
             v_type: context.i32_type().as_basic_type_enum(),
-            var: None,
-            ptr: llvm_ptr.as_basic_value_enum(),
+            ptr: a.ptr, // Reuse the pointer from the first operand
+        };
+        stack.push(result_var);
+    }
+
+    fn handle_binary_subtract<'a>(
+        &self,
+        context: &'a Context,
+        builder: &'a inkwell::builder::Builder,
+        stack: &mut Vec<LlvmVariable<'a>>,
+    ) {
+        let b = stack.pop().expect("stack to have the first of two elements");
+        let a = stack.pop().expect("stack to have the second of two elements");
+
+        let llvm_val = builder
+            .build_int_sub(a.value.into_int_value(), b.value.into_int_value(), "sub")
+            .expect("subtracting ints to work");
+
+        // Only create a new allocation if we need to store the result
+        let result_var = LlvmVariable {
+            value: BasicValueEnum::IntValue(llvm_val),
+            v_type: context.i32_type().as_basic_type_enum(),
+            ptr: a.ptr, // Reuse the pointer from the first operand
         };
         stack.push(result_var);
     }
@@ -195,6 +213,9 @@ impl LlvmCompiler {
                     }
                     Operation::BinaryAdd(_) => {
                         self.handle_binary_add(&context, &builder, &mut stack);
+                    }
+                    Operation::BinarySubtract(_) => {
+                        self.handle_binary_subtract(&context, &builder, &mut stack);
                     }
                     Operation::ReturnValue(_) => {
                         self.handle_return_value(&builder, &mut stack);
