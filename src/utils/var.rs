@@ -1,9 +1,4 @@
 use super::{code::CodeBlock, pycachereader::PyCacheReader};
-use inkwell::{
-    context::Context,
-    types::{BasicType, BasicTypeEnum},
-};
-use std::str;
 
 const FLAG_REF: u8 = 0x80; // with a type, add obj to index
 
