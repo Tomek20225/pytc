@@ -37,7 +37,9 @@ impl LlvmCompiler {
         variables_ptr: &mut HashMap<String, LlvmVariable<'a>>,
         stack: &mut Vec<LlvmVariable<'a>>,
     ) {
-        let name = String::from("temp");
+        // Create a unique temporary name to avoid collisions
+        let temp_counter = variables_ptr.len(); // Simple counter for uniqueness
+        let name = format!("temp_{}", temp_counter);
         let var = consts[i as usize];
 
         let var_type = match var {
@@ -77,9 +79,29 @@ impl LlvmCompiler {
         stack: &mut Vec<LlvmVariable<'a>>,
     ) {
         let name = &names[i as usize];
-        let llvm_var = stack.pop().expect(&format!("expected stack to contain at least one element - {:?}", name));
-        llvm_var.ptr.set_name(name);
-        variables_ptr.remove("temp");
+        let temp_var = stack.pop().expect(&format!("expected stack to contain at least one element - {:?}", name));
+        
+        // Create a NEW allocation for this variable instead of reusing the temporary one
+        let new_ptr = builder
+            .build_alloca(temp_var.v_type, name)
+            .expect(&format!("expected llvm to create a local pointer for variable - {:?}", name));
+        
+        let llvm_var = LlvmVariable {
+            ptr: BasicValueEnum::PointerValue(new_ptr),
+            v_type: temp_var.v_type,
+            value: temp_var.value,
+        };
+        
+        // Remove any temporary variable that might have been used
+        // Find and remove temp variables instead of hardcoded "temp"
+        let temp_keys: Vec<String> = variables_ptr.keys()
+            .filter(|k| k.starts_with("temp_"))
+            .cloned()
+            .collect();
+        for temp_key in temp_keys {
+            variables_ptr.remove(&temp_key);
+        }
+        
         variables_ptr.insert(name.clone(), llvm_var.clone());
 
         builder
