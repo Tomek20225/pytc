@@ -46,7 +46,7 @@ impl LlvmCompiler {
         };
         let var_value = match var_type {
             BasicTypeEnum::IntType(t) => {
-                let value = var.as_int().expect("var of type int to be unpacked");
+                let value = var.as_int().expect(&format!("expected var of type int to be unpacked - {:?}", var));
                 let llvm_value = t.const_int(value as u64, false);
                 BasicValueEnum::IntValue(llvm_value)
             }
@@ -55,7 +55,7 @@ impl LlvmCompiler {
 
         let llvm_ptr = builder
             .build_alloca(var_type, &name)
-            .expect("llvm to create a local pointer");
+            .expect(&format!("expected llvm to create a local pointer - {:?}", name));
 
         let llvm_var = LlvmVariable {
             ptr: BasicValueEnum::PointerValue(llvm_ptr),
@@ -76,7 +76,7 @@ impl LlvmCompiler {
         stack: &mut Vec<LlvmVariable<'a>>,
     ) {
         let name = &names[i as usize];
-        let llvm_var = stack.pop().expect("stack to contain at least one element");
+        let llvm_var = stack.pop().expect(&format!("expected stack to contain at least one element - {:?}", name));
         llvm_var.ptr.set_name(name);
         variables_ptr.remove("temp");
         variables_ptr.insert(name.clone(), llvm_var.clone());
@@ -101,7 +101,7 @@ impl LlvmCompiler {
         let name = &names[i as usize];
         let llvm_var = variables_ptr
             .get(name)
-            .expect("loaded variable to be already declared");
+            .expect(&format!("expected loaded variable to be already declared - {:?}", name));
 
         let llvm_val = builder
             .build_load(
@@ -109,7 +109,7 @@ impl LlvmCompiler {
                 llvm_var.ptr.into_pointer_value(),
                 &name,
             )
-            .expect("llvm to load the variable");
+            .expect(&format!("expected llvm to load the variable - {:?}", name));
         
         let new_llvm_var = LlvmVariable {
             v_type: context.i32_type().as_basic_type_enum(),
@@ -126,12 +126,12 @@ impl LlvmCompiler {
         builder: &'a inkwell::builder::Builder,
         stack: &mut Vec<LlvmVariable<'a>>,
     ) {
-        let b = stack.pop().expect("stack to have the first of two elements");
-        let a = stack.pop().expect("stack to have the second of two elements");
+        let b = stack.pop().expect("expected stack to have the first of two elements");
+        let a = stack.pop().expect("expected stack to have the second of two elements");
 
         let llvm_val = builder
             .build_int_add(a.value.into_int_value(), b.value.into_int_value(), "sum")
-            .expect("adding ints to work");
+            .expect(&format!("expected adding ints to work - {:?}, {:?}", a.value, b.value));
 
         // Only create a new allocation if we need to store the result
         let result_var = LlvmVariable {
@@ -148,12 +148,12 @@ impl LlvmCompiler {
         builder: &'a inkwell::builder::Builder,
         stack: &mut Vec<LlvmVariable<'a>>,
     ) {
-        let b = stack.pop().expect("stack to have the first of two elements");
-        let a = stack.pop().expect("stack to have the second of two elements");
+        let b = stack.pop().expect("expected stack to have the first of two elements");
+        let a = stack.pop().expect("expected stack to have the second of two elements");
 
         let llvm_val = builder
             .build_int_sub(a.value.into_int_value(), b.value.into_int_value(), "sub")
-            .expect("subtracting ints to work");
+            .expect("expected subtracting ints to work");
 
         // Only create a new allocation if we need to store the result
         let result_var = LlvmVariable {
@@ -169,7 +169,7 @@ impl LlvmCompiler {
         builder: &'a inkwell::builder::Builder,
         stack: &mut Vec<LlvmVariable<'a>>,
     ) {
-        let llvm_var = stack.pop().expect("stack to contain at least one element");
+        let llvm_var = stack.pop().expect("expected stack to contain at least one element");
         let _ = builder.build_return(Some(&llvm_var.value));
     }
 
@@ -243,10 +243,10 @@ impl LlvmCompiler {
         let out_file = file_dir + file_stem + ".ll";
         let out_file_path = Path::new(&out_file);
         let mut out = fs::File::create(out_file_path)
-            .expect("Unable to create the LLVM IR file on disk in the given location");
+            .expect(&format!("Unable to create the LLVM IR file on disk in the given location - {:?}", out_file_path.display()));
 
         out.write_all(ir.as_bytes())
-            .expect("Unable to write the data to the LLVM IR file");
+            .expect(&format!("Unable to write the data to the LLVM IR file - {:?}", out_file_path.display()));
         println!("SAVED THE LLVM IR TO: {:?}", out_file_path);
     }
 
