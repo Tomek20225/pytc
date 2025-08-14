@@ -249,6 +249,11 @@ impl LlvmCompiler {
             let consts = code_block.get_consts(&self.refs);
             let operations = code_block.get_operations();
 
+            // Debug output of the read operations
+            for op in operations {
+                println!("{:?}: {:?}", code_block.get_name(&self.refs), op);
+            }
+
             for op in operations {
                 match op {
                     Operation::LoadConstArg(i) => {

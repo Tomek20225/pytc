@@ -11,3 +11,23 @@ __pycache__
 *.pyc
 *.exe
 *.out
+
+# compiler generated files
+*.instructions
+*.pyc
+
+# test artifacts
+tests/artifacts/*
+!tests/artifacts/.gitkeep
+tests/expected_outputs/*.actual
+tests/python_files/*.ll
+tests/python_files/*.s
+tests/python_files/*.instructions
+tests/python_files/*.pyc
+# Binary executables without extensions (test names)
+tests/python_files/test_addition
+tests/python_files/test_basic_arithmetic
+tests/python_files/test_multiple_operations
+tests/python_files/test_simple_assignment
+tests/python_files/test_subtraction
+tests/python_files/test_variable_reuse

@@ -19,9 +19,9 @@ This approach leverages LLVM's mature optimization pipeline and cross-platform c
 ## Todo:
 
 - [x] Generation and decompilation of .pycache files based on the .py files
-- [x] Variable declarations
-- [x] Integer and variable additions
-- [x] Print statements
+- [x] Variable declaration
+- [x] Integer addition and subtraction
+- [x] Printing to console
 - [ ] Mapping of all primitive and non-primitive types
 - [ ] Mapping of all operations
 - [ ] User-defined functions
