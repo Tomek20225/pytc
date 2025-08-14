@@ -202,23 +202,27 @@ impl LlvmCompiler {
                 println!("{:?}: {:?}", code_block.get_name(&self.refs), op);
 
                 match op {
-                    Operation::LoadConst(i) => {
+                    Operation::LoadConstArg(i) => {
                         self.handle_load_const(&context, &builder, &consts, *i, &mut variables_ptr, &mut stack);
                     }
-                    Operation::StoreName(i) => {
+                    Operation::StoreNameArg(i) => {
                         self.handle_store_name(&builder, &names, *i, &mut variables_ptr, &mut stack);
                     }
-                    Operation::LoadName(i) => {
+                    Operation::LoadNameArg(i) => {
                         self.handle_load_name(&context, &builder, &names, *i, &variables_ptr, &mut stack);
                     }
-                    Operation::BinaryAdd(_) => {
+                    Operation::BinaryAdd => {
                         self.handle_binary_add(&context, &builder, &mut stack);
                     }
-                    Operation::BinarySubtract(_) => {
+                    Operation::BinarySubtract => {
                         self.handle_binary_subtract(&context, &builder, &mut stack);
                     }
-                    Operation::ReturnValue(_) => {
+                    Operation::ReturnValue => {
                         self.handle_return_value(&builder, &mut stack);
+                    }
+                    Operation::StopCode => {
+                        // StopCode marks the end of bytecode - ignore it
+                        continue;
                     }
                     _ => todo!("operation {:?}", op),
                 }

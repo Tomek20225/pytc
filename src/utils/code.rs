@@ -91,7 +91,7 @@ impl CodeBlock {
         operation: &'a Operation,
     ) -> BasicTypeEnum {
         match operation {
-            Operation::LoadConst(i) => {
+            Operation::LoadConstArg(i) => {
                 let consts = self.get_consts(refs);
                 let var = consts[*i as usize];
                 match var {
@@ -99,6 +99,11 @@ impl CodeBlock {
                     Var::Int(_) | Var::Long(_) => ctx.i32_type().as_basic_type_enum(),
                     _ => todo!("{:?} as return value", var),
                 }
+            }
+            Operation::ReturnValue => {
+                // ReturnValue returns the type of the value on top of the stack
+                // For now, assume it's an integer (most common case)
+                ctx.i32_type().as_basic_type_enum()
             }
             _ => todo!("operation {:?} as return value", operation),
         }

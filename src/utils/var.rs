@@ -4,9 +4,9 @@ const FLAG_REF: u8 = 0x80; // with a type, add obj to index
 
 // TODO: Finish translating types into an enum
 #[derive(Debug, Default, Clone)]
-pub enum Var {
+pub enum Var {  
     #[default]
-    Null, // 0
+    Null,                       // 0
     None,                       // N
     True,                       // T
     False,                      // F

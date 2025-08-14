@@ -44,6 +44,7 @@ This approach leverages LLVM's mature optimization pipeline and cross-platform c
 - [Exception handling encoding](https://github.com/python/cpython/blob/main/Objects/exception_handling_notes.txt)
 - [Bytecode address-to-line encoding](https://github.com/python/cpython/blob/main/Objects/locations.md)
 - [Python bytecode instructions](https://docs.python.org/3/library/dis.html#python-bytecode-instructions)
+- [Article on bytecode decompilation](https://medium.com/@skuznetsov/understanding-python-byte-code-and-decompilation-a-comprehensive-guide-a35a9c1329cb)
 - https://github.com/python/cpython/blob/main/Python/marshal.c
 - https://github.com/python/cpython/blob/main/Include/cpython/code.h
 
