@@ -105,7 +105,7 @@ pub enum Operation {
     DeleteFast,
     GenStart,
     RaiseVarargs,
-    CallFunction,
+    CallFunction,        // 131 - call function with positional arguments
     MakeFunction,
     BuildSlice,
     LoadClosure,
@@ -271,12 +271,13 @@ impl Operation {
         match byte {
             // === OPERATIONS WITH NO ARGUMENTS ===
             0 => Some(Operation::StopCode),
+            1 => Some(Operation::PopTop),
             23 => Some(Operation::BinaryAdd),
             24 => Some(Operation::BinarySubtract),
             83 => Some(Operation::ReturnValue),
             
             // === OPERATIONS WITH 1-BYTE ARGUMENT ===
-            1 => Some(Operation::PopTopArg(reader.read_byte())),
+            // These take a single u8 argument (index, offset, etc.)
             2 => Some(Operation::RotTwoArg(reader.read_byte())),
             3 => Some(Operation::RotThreeArg(reader.read_byte())),
             4 => Some(Operation::DupTopArg(reader.read_byte())),

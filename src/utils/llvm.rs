@@ -1,4 +1,5 @@
-use super::{code::CodeBlock, operations::Operation, var::Var};
+use super::{builtins, code::CodeBlock, operations::Operation, var::Var};
+use crate::handle_print_builtin;
 use inkwell::context::Context;
 use inkwell::types::{BasicType, BasicTypeEnum};
 use inkwell::values::BasicValueEnum;
@@ -16,9 +17,9 @@ pub struct LlvmCompiler {
 
 #[derive(Debug, Clone)]
 pub struct LlvmVariable<'a> {
-    v_type: BasicTypeEnum<'a>,
-    ptr: BasicValueEnum<'a>,
-    value: BasicValueEnum<'a>,
+    pub v_type: BasicTypeEnum<'a>,
+    pub ptr: BasicValueEnum<'a>,
+    pub value: BasicValueEnum<'a>,
 }
 
 // TODO: Make the IR generator use the instructions and refs it was given
@@ -99,9 +100,22 @@ impl LlvmCompiler {
         stack: &mut Vec<LlvmVariable<'a>>,
     ) {
         let name = &names[i as usize];
-        let llvm_var = variables_ptr
-            .get(name)
-            .expect(&format!("expected loaded variable to be already declared - {:?}", name));
+        let llvm_var = match variables_ptr.get(name) {
+            Some(var) => var,
+            None => {
+                // Check if it's a standard library function
+                if builtins::is_builtin(name) {
+                    // For builtin functions, we'll create a placeholder variable that represents the function
+                    // This will be handled later in CallFunction
+                    let builtin_var = builtins::create_builtin_placeholder(context);
+                    stack.push(builtin_var);
+                    return;
+                } else {
+                    // If it's not a builtin function, then it should be a user-defined variable or a function
+                    panic!("expected loaded variable to be already declared - {:?}", name);
+                }
+            }
+        };
 
         let llvm_val = builder
             .build_load(
@@ -173,10 +187,24 @@ impl LlvmCompiler {
         let _ = builder.build_return(Some(&llvm_var.value));
     }
 
+    fn handle_pop_top<'a>(
+        &self,
+        stack: &mut Vec<LlvmVariable<'a>>,
+    ) {
+        stack.pop().expect("expected stack to contain at least one element");
+    }
+
     pub fn generate_ir(&self) -> String {
         let context = Context::create();
         let module = context.create_module(&self.code.get_name(&self.refs));
         let builder = context.create_builder();
+
+        // Declare printf function at the beginning
+        let printf_type = context.i32_type().fn_type(
+            &[context.i8_type().ptr_type(inkwell::AddressSpace::default()).into()],
+            true, // varargs
+        );
+        let _printf_func = module.add_function("printf", printf_type, None);
 
         let code_blocks = self.code.get_code_blocks(&self.refs);
         let mut stack: Vec<LlvmVariable> = vec![];
@@ -194,13 +222,12 @@ impl LlvmCompiler {
             let entry = context.append_basic_block(function, "entry");
             builder.position_at_end(entry);
 
-            let consts = code_block.get_consts(&self.refs);
-            let names = code_block.get_names(&self.refs);
             let mut variables_ptr: HashMap<String, LlvmVariable> = HashMap::new();
+            let names = code_block.get_names(&self.refs);
+            let consts = code_block.get_consts(&self.refs);
+            let operations = code_block.get_operations();
 
-            for op in code_block.get_operations() {
-                println!("{:?}: {:?}", code_block.get_name(&self.refs), op);
-
+            for op in operations {
                 match op {
                     Operation::LoadConstArg(i) => {
                         self.handle_load_const(&context, &builder, &consts, *i, &mut variables_ptr, &mut stack);
@@ -223,6 +250,57 @@ impl LlvmCompiler {
                     Operation::StopCode => {
                         // StopCode marks the end of bytecode - ignore it
                         continue;
+                    }
+                    Operation::PopTop => {
+                        self.handle_pop_top(&mut stack);
+                    }
+                    Operation::CallFunctionArg(i) => {
+                        // Handle function calls using the builtins module
+                        let arg_count = *i;
+                        
+                        if stack.len() < (arg_count + 1) as usize {
+                            panic!("expected stack to have at least {} arguments plus function name", arg_count);
+                        }
+                        
+                        // Get the argument (it's the top of the stack)
+                        let arg = stack.pop().expect("expected argument on stack");
+                        
+                        // Get the function name (it's now the top of the stack)
+                        let func_name_var = stack.pop().expect("expected function name on stack");
+                        
+                        // Find the function name in the names list
+                        let func_name = builtins::find_function_name(&names, &variables_ptr, &func_name_var)
+                            .expect("expected to find function name in variables or built-ins");
+                        
+                        // Check if it's a builtin function and handle it
+                        if builtins::is_builtin(&func_name) {
+                            // Handle builtin function call using the builtins module
+                            match func_name.as_str() {
+                                builtins::PRINT => {
+                                    handle_print_builtin!(builder, module, arg);
+                                }
+                                _ => {
+                                    todo!("Builtin function '{}' not yet implemented", func_name);
+                                }
+                            }
+                            
+                            // Push a dummy result back onto the stack to maintain stack balance
+                            let dummy_result = LlvmVariable {
+                                v_type: context.i32_type().as_basic_type_enum(),
+                                ptr: context.i32_type().const_zero().into(),
+                                value: context.i32_type().const_zero().into(),
+                            };
+                            stack.push(dummy_result);
+                        } else {
+                            // For non-builtin functions, create a dummy result for now
+                            let dummy_result = LlvmVariable {
+                                v_type: context.i32_type().as_basic_type_enum(),
+                                ptr: context.i32_type().const_zero().into(),
+                                value: context.i32_type().const_zero().into(),
+                            };
+                            stack.push(dummy_result);
+                            todo!("Function call to {} (not yet fully implemented)", func_name);
+                        }
                     }
                     _ => todo!("operation {:?}", op),
                 }
