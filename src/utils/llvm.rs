@@ -1,5 +1,4 @@
 use super::{builtins, code::CodeBlock, operations::Operation, var::Var};
-use crate::handle_print_builtin;
 use inkwell::context::Context;
 use inkwell::types::{BasicType, BasicTypeEnum};
 use inkwell::values::BasicValueEnum;
@@ -403,7 +402,7 @@ impl LlvmCompiler {
                                 ptr: context.i32_type().const_zero().into(), // Placeholder
                                 value: arg.to_llvm_value(&context),
                             };
-                            handle_print_builtin!(builder, module, llvm_arg);
+                            builtins::handle_print_builtin(&builder, &module, &llvm_arg);
                         }
                     }
                     _ => {
