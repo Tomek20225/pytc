@@ -1,9 +1,4 @@
-use inkwell::context::Context;
-use inkwell::types::{BasicType, BasicTypeEnum};
-use inkwell::values::BasicValueEnum;
-use std::collections::HashMap;
-
-use super::llvm::LlvmVariable;
+use inkwell::types::BasicTypeEnum;
 
 // Global constants for supported builtin functions
 pub const PRINT: &str = "print";
@@ -17,30 +12,7 @@ pub fn is_builtin(name: &str) -> bool {
     matches!(name, PRINT)
 }
 
-/// Create a placeholder variable for builtin functions during load_name
-pub fn create_builtin_placeholder<'a>(context: &'a Context) -> LlvmVariable<'a> {
-    LlvmVariable {
-        v_type: context.i32_type().as_basic_type_enum(), // Placeholder type
-        ptr: BasicValueEnum::IntValue(context.i32_type().const_int(0, false)), // Placeholder pointer
-        value: BasicValueEnum::IntValue(context.i32_type().const_int(0, false)), // Placeholder value
-    }
-}
 
-/// Find a function name in the names list, checking both variables and builtins
-pub fn find_function_name<'a>(
-    names: &[String],
-    variables_ptr: &HashMap<String, LlvmVariable<'a>>,
-    func_name_var: &LlvmVariable<'a>,
-) -> Option<String> {
-    names.iter().find(|name| {
-        if let Some(var) = variables_ptr.get(*name) {
-            var.ptr == func_name_var.ptr
-        } else {
-            // Check if it's a built-in function
-            is_builtin(name)
-        }
-    }).cloned()
-}
 
 /// Get the format string for the print function based on the argument type
 pub fn get_print_format_string(arg_type: &BasicTypeEnum) -> &'static str {

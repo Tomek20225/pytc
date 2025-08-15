@@ -15,11 +15,248 @@ pub struct LlvmCompiler {
     refs: Vec<Var>,
 }
 
+// Owned type that doesn't depend on lifetimes
+#[derive(Debug, Clone)]
+pub enum VarType {
+    Int32,
+    // Add more types as needed
+}
+
+// Owned variable representation without lifetime dependencies
+#[derive(Debug, Clone)]
+pub struct OwnedVariable {
+    pub var_type: VarType,
+    pub name: String,
+    pub value: i64, // Store the actual value, not LLVM representation
+    pub is_temp: bool,
+}
+
+// Runtime LLVM variable that gets created during IR generation
 #[derive(Debug, Clone)]
 pub struct LlvmVariable<'a> {
     pub v_type: BasicTypeEnum<'a>,
     pub ptr: BasicValueEnum<'a>,
     pub value: BasicValueEnum<'a>,
+}
+
+// Handler struct that can be extracted without lifetime issues
+pub struct LlvmHandlers {
+    temp_counter: usize,
+}
+
+impl LlvmHandlers {
+    pub fn new() -> Self {
+        Self { temp_counter: 0 }
+    }
+
+    fn get_next_temp_name(&mut self) -> String {
+        let name = format!("temp_{}", self.temp_counter);
+        self.temp_counter += 1;
+        name
+    }
+
+    pub fn handle_load_const(
+        &mut self,
+        consts: &[&Var],
+        i: u8,
+        variables: &mut HashMap<String, OwnedVariable>,
+        stack: &mut Vec<OwnedVariable>,
+    ) {
+        let temp_name = self.get_next_temp_name();
+        let var = consts[i as usize];
+        let owned_var = OwnedVariable::from_var(var, temp_name.clone(), true);
+        
+        variables.insert(temp_name, owned_var.clone());
+        stack.push(owned_var);
+    }
+
+    pub fn handle_store_name(
+        &mut self,
+        names: &[String],
+        i: u8,
+        variables: &mut HashMap<String, OwnedVariable>,
+        stack: &mut Vec<OwnedVariable>,
+    ) {
+        let name = &names[i as usize];
+        let mut temp_var = stack.pop().expect(&format!("expected stack to contain at least one element - {:?}", name));
+        
+        // Update the variable to be non-temporary and use the proper name
+        temp_var.name = name.clone();
+        temp_var.is_temp = false;
+        
+        // Remove any temporary variables
+        let temp_keys: Vec<String> = variables.keys()
+            .filter(|k| k.starts_with("temp_"))
+            .cloned()
+            .collect();
+        for temp_key in temp_keys {
+            variables.remove(&temp_key);
+        }
+        
+        variables.insert(name.clone(), temp_var);
+    }
+
+    pub fn handle_load_name(
+        &self,
+        names: &[String],
+        i: u8,
+        variables: &HashMap<String, OwnedVariable>,
+        stack: &mut Vec<OwnedVariable>,
+    ) {
+        let name = &names[i as usize];
+        
+        if let Some(var) = variables.get(name) {
+            stack.push(var.clone());
+        } else if builtins::is_builtin(name) {
+            // Create a placeholder for builtin functions
+            let builtin_var = OwnedVariable {
+                var_type: VarType::Int32,
+                name: name.clone(),
+                value: 0,
+                is_temp: false,
+            };
+            stack.push(builtin_var);
+        } else {
+            panic!("expected loaded variable to be already declared - {:?}", name);
+        }
+    }
+
+    pub fn handle_binary_add(
+        &mut self,
+        stack: &mut Vec<OwnedVariable>,
+    ) {
+        let b = stack.pop().expect("expected stack to have the first of two elements");
+        let a = stack.pop().expect("expected stack to have the second of two elements");
+
+        let result_value = a.value + b.value;
+        let temp_name = self.get_next_temp_name();
+        
+        let result_var = OwnedVariable {
+            var_type: VarType::Int32,
+            name: temp_name,
+            value: result_value,
+            is_temp: true,
+        };
+        
+        stack.push(result_var);
+    }
+
+    pub fn handle_binary_subtract(
+        &mut self,
+        stack: &mut Vec<OwnedVariable>,
+    ) {
+        let b = stack.pop().expect("expected stack to have the first of two elements");
+        let a = stack.pop().expect("expected stack to have the second of two elements");
+
+        let result_value = a.value - b.value;
+        let temp_name = self.get_next_temp_name();
+        
+        let result_var = OwnedVariable {
+            var_type: VarType::Int32,
+            name: temp_name,
+            value: result_value,
+            is_temp: true,
+        };
+        
+        stack.push(result_var);
+    }
+
+    pub fn handle_return_value(
+        &self,
+        stack: &mut Vec<OwnedVariable>,
+    ) -> Option<OwnedVariable> {
+        stack.pop()
+    }
+
+    pub fn handle_pop_top(
+        &self,
+        stack: &mut Vec<OwnedVariable>,
+    ) {
+        stack.pop().expect("expected stack to contain at least one element");
+    }
+
+    pub fn handle_call_function(
+        &mut self,
+        names: &[String],
+        arg_count: u8,
+        variables: &HashMap<String, OwnedVariable>,
+        stack: &mut Vec<OwnedVariable>,
+    ) -> Result<(String, Vec<OwnedVariable>), String> {
+        if stack.len() < (arg_count + 1) as usize {
+            return Err(format!("expected stack to have at least {} arguments plus function name", arg_count));
+        }
+        
+        // Get the arguments (they're on top of the stack)
+        let mut args = Vec::new();
+        for _ in 0..arg_count {
+            args.push(stack.pop().expect("expected argument on stack"));
+        }
+        args.reverse(); // Arguments were pushed in reverse order
+        
+        // Get the function name (it's now the top of the stack)
+        let func_name_var = stack.pop().expect("expected function name on stack");
+        
+        // Find the function name
+        let func_name = names.iter()
+            .find(|name| {
+                if let Some(var) = variables.get(*name) {
+                    var.name == func_name_var.name
+                } else {
+                    builtins::is_builtin(name)
+                }
+            })
+            .cloned()
+            .unwrap_or_else(|| func_name_var.name.clone());
+        
+        // Push a dummy result back onto the stack to maintain stack balance
+        let temp_name = self.get_next_temp_name();
+        let dummy_result = OwnedVariable {
+            var_type: VarType::Int32,
+            name: temp_name,
+            value: 0,
+            is_temp: true,
+        };
+        stack.push(dummy_result);
+        
+        Ok((func_name, args))
+    }
+}
+
+impl VarType {
+    fn to_llvm_type<'a>(&self, context: &'a Context) -> BasicTypeEnum<'a> {
+        match self {
+            VarType::Int32 => context.i32_type().as_basic_type_enum(),
+        }
+    }
+}
+
+impl OwnedVariable {
+    fn to_llvm_value<'a>(&self, context: &'a Context) -> BasicValueEnum<'a> {
+        match self.var_type {
+            VarType::Int32 => {
+                let int_type = context.i32_type();
+                BasicValueEnum::IntValue(int_type.const_int(self.value as u64, false))
+            }
+        }
+    }
+
+    fn from_var(var: &Var, name: String, is_temp: bool) -> Self {
+        match var {
+            Var::None => OwnedVariable {
+                var_type: VarType::Int32,
+                name,
+                value: 0,
+                is_temp,
+            },
+            Var::Int(val) => OwnedVariable {
+                var_type: VarType::Int32,
+                name,
+                value: *val as i64,
+                is_temp,
+            },
+            _ => todo!("Support for var type {:?} not implemented", var),
+        }
+    }
 }
 
 // TODO: Make the IR generator use the instructions and refs it was given
@@ -28,193 +265,7 @@ impl LlvmCompiler {
         LlvmCompiler { code, refs }
     }
 
-    fn handle_load_const<'a>(
-        &self,
-        context: &'a Context,
-        builder: &'a inkwell::builder::Builder,
-        consts: &Vec<&Var>,
-        i: u8,
-        variables_ptr: &mut HashMap<String, LlvmVariable<'a>>,
-        stack: &mut Vec<LlvmVariable<'a>>,
-    ) {
-        // Create a unique temporary name to avoid collisions
-        let temp_counter = variables_ptr.len(); // Simple counter for uniqueness
-        let name = format!("temp_{}", temp_counter);
-        let var = consts[i as usize];
 
-        let var_type = match var {
-            Var::None => context.i32_type().as_basic_type_enum(), // defaults to 0
-            Var::Int(_) => context.i32_type().as_basic_type_enum(),
-            _ => todo!("can't get type of var {:?}", var),
-        };
-        let var_value = match var_type {
-            BasicTypeEnum::IntType(t) => {
-                let value = var.as_int().expect(&format!("expected var of type int to be unpacked - {:?}", var));
-                let llvm_value = t.const_int(value as u64, false);
-                BasicValueEnum::IntValue(llvm_value)
-            }
-            _ => todo!("declaring values of type {:?}", var_type),
-        };
-
-        let llvm_ptr = builder
-            .build_alloca(var_type, &name)
-            .expect(&format!("expected llvm to create a local pointer - {:?}", name));
-
-        let llvm_var = LlvmVariable {
-            ptr: BasicValueEnum::PointerValue(llvm_ptr),
-            v_type: var_type,
-            value: var_value,
-        };
-
-        variables_ptr.insert(name.clone(), llvm_var.clone());
-        stack.push(llvm_var);
-    }
-
-    fn handle_store_name<'a>(
-        &self,
-        builder: &'a inkwell::builder::Builder,
-        names: &[String],
-        i: u8,
-        variables_ptr: &mut HashMap<String, LlvmVariable<'a>>,
-        stack: &mut Vec<LlvmVariable<'a>>,
-    ) {
-        let name = &names[i as usize];
-        let temp_var = stack.pop().expect(&format!("expected stack to contain at least one element - {:?}", name));
-        
-        // Create a NEW allocation for this variable instead of reusing the temporary one
-        let new_ptr = builder
-            .build_alloca(temp_var.v_type, name)
-            .expect(&format!("expected llvm to create a local pointer for variable - {:?}", name));
-        
-        let llvm_var = LlvmVariable {
-            ptr: BasicValueEnum::PointerValue(new_ptr),
-            v_type: temp_var.v_type,
-            value: temp_var.value,
-        };
-        
-        // Remove any temporary variable that might have been used
-        // Find and remove temp variables instead of hardcoded "temp"
-        let temp_keys: Vec<String> = variables_ptr.keys()
-            .filter(|k| k.starts_with("temp_"))
-            .cloned()
-            .collect();
-        for temp_key in temp_keys {
-            variables_ptr.remove(&temp_key);
-        }
-        
-        variables_ptr.insert(name.clone(), llvm_var.clone());
-
-        builder
-            .build_store(llvm_var.ptr.into_pointer_value(), llvm_var.value)
-            .expect(&format!(
-                "llvm to declare a variable of type {:?}",
-                llvm_var.v_type
-            ));
-    }
-
-    fn handle_load_name<'a>(
-        &self,
-        context: &'a Context,
-        builder: &'a inkwell::builder::Builder,
-        names: &[String],
-        i: u8,
-        variables_ptr: &HashMap<String, LlvmVariable<'a>>,
-        stack: &mut Vec<LlvmVariable<'a>>,
-    ) {
-        let name = &names[i as usize];
-        let llvm_var = match variables_ptr.get(name) {
-            Some(var) => var,
-            None => {
-                // Check if it's a standard library function
-                if builtins::is_builtin(name) {
-                    // For builtin functions, we'll create a placeholder variable that represents the function
-                    // This will be handled later in CallFunction
-                    let builtin_var = builtins::create_builtin_placeholder(context);
-                    stack.push(builtin_var);
-                    return;
-                } else {
-                    // If it's not a builtin function, then it should be a user-defined variable or a function
-                    panic!("expected loaded variable to be already declared - {:?}", name);
-                }
-            }
-        };
-
-        let llvm_val = builder
-            .build_load(
-                context.i32_type(),
-                llvm_var.ptr.into_pointer_value(),
-                &name,
-            )
-            .expect(&format!("expected llvm to load the variable - {:?}", name));
-        
-        let new_llvm_var = LlvmVariable {
-            v_type: context.i32_type().as_basic_type_enum(),
-            ptr: llvm_var.ptr,  // Keep the original pointer
-            value: llvm_val,    // Store the loaded value
-        };
-
-        stack.push(new_llvm_var);
-    }
-
-    fn handle_binary_add<'a>(
-        &self,
-        context: &'a Context,
-        builder: &'a inkwell::builder::Builder,
-        stack: &mut Vec<LlvmVariable<'a>>,
-    ) {
-        let b = stack.pop().expect("expected stack to have the first of two elements");
-        let a = stack.pop().expect("expected stack to have the second of two elements");
-
-        let llvm_val = builder
-            .build_int_add(a.value.into_int_value(), b.value.into_int_value(), "sum")
-            .expect(&format!("expected adding ints to work - {:?}, {:?}", a.value, b.value));
-
-        // Only create a new allocation if we need to store the result
-        let result_var = LlvmVariable {
-            value: BasicValueEnum::IntValue(llvm_val),
-            v_type: context.i32_type().as_basic_type_enum(),
-            ptr: a.ptr, // Reuse the pointer from the first operand
-        };
-        stack.push(result_var);
-    }
-
-    fn handle_binary_subtract<'a>(
-        &self,
-        context: &'a Context,
-        builder: &'a inkwell::builder::Builder,
-        stack: &mut Vec<LlvmVariable<'a>>,
-    ) {
-        let b = stack.pop().expect("expected stack to have the first of two elements");
-        let a = stack.pop().expect("expected stack to have the second of two elements");
-
-        let llvm_val = builder
-            .build_int_sub(a.value.into_int_value(), b.value.into_int_value(), "sub")
-            .expect("expected subtracting ints to work");
-
-        // Only create a new allocation if we need to store the result
-        let result_var = LlvmVariable {
-            value: BasicValueEnum::IntValue(llvm_val),
-            v_type: context.i32_type().as_basic_type_enum(),
-            ptr: a.ptr, // Reuse the pointer from the first operand
-        };
-        stack.push(result_var);
-    }
-
-    fn handle_return_value<'a>(
-        &self,
-        builder: &'a inkwell::builder::Builder,
-        stack: &mut Vec<LlvmVariable<'a>>,
-    ) {
-        let llvm_var = stack.pop().expect("expected stack to contain at least one element");
-        let _ = builder.build_return(Some(&llvm_var.value));
-    }
-
-    fn handle_pop_top<'a>(
-        &self,
-        stack: &mut Vec<LlvmVariable<'a>>,
-    ) {
-        stack.pop().expect("expected stack to contain at least one element");
-    }
 
     pub fn generate_ir(&self) -> String {
         let context = Context::create();
@@ -229,7 +280,6 @@ impl LlvmCompiler {
         let _printf_func = module.add_function("printf", printf_type, None);
 
         let code_blocks = self.code.get_code_blocks(&self.refs);
-        let mut stack: Vec<LlvmVariable> = vec![];
         let mut fn_idx = 0;
 
         for code_block in code_blocks {
@@ -244,7 +294,12 @@ impl LlvmCompiler {
             let entry = context.append_basic_block(function, "entry");
             builder.position_at_end(entry);
 
-            let mut variables_ptr: HashMap<String, LlvmVariable> = HashMap::new();
+            // Use owned variables and handlers
+            let mut handlers = LlvmHandlers::new();
+            let mut variables: HashMap<String, OwnedVariable> = HashMap::new();
+            let mut stack: Vec<OwnedVariable> = Vec::new();
+            let mut llvm_variables: HashMap<String, LlvmVariable> = HashMap::new();
+            
             let names = code_block.get_names(&self.refs);
             let consts = code_block.get_consts(&self.refs);
             let operations = code_block.get_operations();
@@ -254,83 +309,113 @@ impl LlvmCompiler {
                 println!("{:?}: {:?}", code_block.get_name(&self.refs), op);
             }
 
+            // First pass: Process operations using owned types, but defer return
+            let mut return_var: Option<OwnedVariable> = None;
+            let mut print_calls: Vec<(String, Vec<OwnedVariable>)> = Vec::new();
+            
             for op in operations {
                 match op {
                     Operation::LoadConstArg(i) => {
-                        self.handle_load_const(&context, &builder, &consts, *i, &mut variables_ptr, &mut stack);
+                        handlers.handle_load_const(&consts, *i, &mut variables, &mut stack);
                     }
                     Operation::StoreNameArg(i) => {
-                        self.handle_store_name(&builder, &names, *i, &mut variables_ptr, &mut stack);
+                        handlers.handle_store_name(&names, *i, &mut variables, &mut stack);
                     }
                     Operation::LoadNameArg(i) => {
-                        self.handle_load_name(&context, &builder, &names, *i, &variables_ptr, &mut stack);
+                        handlers.handle_load_name(&names, *i, &variables, &mut stack);
                     }
                     Operation::BinaryAdd => {
-                        self.handle_binary_add(&context, &builder, &mut stack);
+                        handlers.handle_binary_add(&mut stack);
                     }
                     Operation::BinarySubtract => {
-                        self.handle_binary_subtract(&context, &builder, &mut stack);
+                        handlers.handle_binary_subtract(&mut stack);
                     }
                     Operation::ReturnValue => {
-                        self.handle_return_value(&builder, &mut stack);
+                        return_var = handlers.handle_return_value(&mut stack);
                     }
                     Operation::StopCode => {
                         // StopCode marks the end of bytecode - ignore it
                         continue;
                     }
                     Operation::PopTop => {
-                        self.handle_pop_top(&mut stack);
+                        handlers.handle_pop_top(&mut stack);
                     }
                     Operation::CallFunctionArg(i) => {
-                        // Handle function calls using the builtins module
+                        // Handle function calls
                         let arg_count = *i;
                         
-                        if stack.len() < (arg_count + 1) as usize {
-                            panic!("expected stack to have at least {} arguments plus function name", arg_count);
-                        }
-                        
-                        // Get the argument (it's the top of the stack)
-                        let arg = stack.pop().expect("expected argument on stack");
-                        
-                        // Get the function name (it's now the top of the stack)
-                        let func_name_var = stack.pop().expect("expected function name on stack");
-                        
-                        // Find the function name in the names list
-                        let func_name = builtins::find_function_name(&names, &variables_ptr, &func_name_var)
-                            .expect("expected to find function name in variables or built-ins");
-                        
-                        // Check if it's a builtin function and handle it
-                        if builtins::is_builtin(&func_name) {
-                            // Handle builtin function call using the builtins module
-                            match func_name.as_str() {
-                                builtins::PRINT => {
-                                    handle_print_builtin!(builder, module, arg);
-                                }
-                                _ => {
-                                    todo!("Builtin function '{}' not yet implemented", func_name);
+                        match handlers.handle_call_function(&names, arg_count, &variables, &mut stack) {
+                            Ok((func_name, args)) => {
+                                if builtins::is_builtin(&func_name) {
+                                    match func_name.as_str() {
+                                        builtins::PRINT => {
+                                            // Store for later processing
+                                            print_calls.push((func_name, args));
+                                        }
+                                        _ => {
+                                            todo!("Builtin function '{}' not yet implemented", func_name);
+                                        }
+                                    }
+                                } else {
+                                    todo!("Function call to {} (not yet fully implemented)", func_name);
                                 }
                             }
-                            
-                            // Push a dummy result back onto the stack to maintain stack balance
-                            let dummy_result = LlvmVariable {
-                                v_type: context.i32_type().as_basic_type_enum(),
-                                ptr: context.i32_type().const_zero().into(),
-                                value: context.i32_type().const_zero().into(),
-                            };
-                            stack.push(dummy_result);
-                        } else {
-                            // For non-builtin functions, create a dummy result for now
-                            let dummy_result = LlvmVariable {
-                                v_type: context.i32_type().as_basic_type_enum(),
-                                ptr: context.i32_type().const_zero().into(),
-                                value: context.i32_type().const_zero().into(),
-                            };
-                            stack.push(dummy_result);
-                            todo!("Function call to {} (not yet fully implemented)", func_name);
+                            Err(e) => {
+                                panic!("Function call error: {}", e);
+                            }
                         }
                     }
                     _ => todo!("operation {:?}", op),
                 }
+            }
+
+            // Second pass: Create LLVM allocations for stored variables
+            for (name, owned_var) in &variables {
+                if !owned_var.is_temp {
+                    let llvm_type = owned_var.var_type.to_llvm_type(&context);
+                    let llvm_value = owned_var.to_llvm_value(&context);
+                    
+                    let llvm_ptr = builder
+                        .build_alloca(llvm_type, name)
+                        .expect(&format!("expected llvm to create a local pointer for variable - {:?}", name));
+                    
+                    builder
+                        .build_store(llvm_ptr, llvm_value)
+                        .expect(&format!("llvm to store variable of type {:?}", llvm_type));
+                    
+                    let llvm_var = LlvmVariable {
+                        ptr: BasicValueEnum::PointerValue(llvm_ptr),
+                        v_type: llvm_type,
+                        value: llvm_value,
+                    };
+                    
+                    llvm_variables.insert(name.clone(), llvm_var);
+                }
+            }
+
+            // Third pass: Handle deferred operations (print calls)
+            for (func_name, args) in print_calls {
+                match func_name.as_str() {
+                    builtins::PRINT => {
+                        if let Some(arg) = args.first() {
+                            let llvm_arg = LlvmVariable {
+                                v_type: arg.var_type.to_llvm_type(&context),
+                                ptr: context.i32_type().const_zero().into(), // Placeholder
+                                value: arg.to_llvm_value(&context),
+                            };
+                            handle_print_builtin!(builder, module, llvm_arg);
+                        }
+                    }
+                    _ => {
+                        todo!("Builtin function '{}' not yet implemented", func_name);
+                    }
+                }
+            }
+
+            // Finally: Handle return instruction
+            if let Some(ret_var) = return_var {
+                let llvm_value = ret_var.to_llvm_value(&context);
+                let _ = builder.build_return(Some(&llvm_value));
             }
 
             fn_idx += 1;
